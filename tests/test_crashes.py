@@ -4,7 +4,7 @@
 
 import unittest
 import os
-from clouseau.stability import crashes
+from clouseau import crashes
 from libmozdata.redash import Redash
 
 
