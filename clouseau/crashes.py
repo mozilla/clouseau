@@ -290,7 +290,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    config.set_config(config.ConfigIni(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'config.ini')))
+    config.set_config(config.ConfigIni(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config.ini')))
 
     for channel in args.channels:
         for startup in [False, True]:
