@@ -11,6 +11,15 @@ Install the prerequisites via `pip`:
 sudo pip install -r requirements.txt
 ```
 
+## Usage
+
+### stats
+> Get crash rates for a given channel
+
+```sh
+python -m clouseau.stats -s 2016-05-01 -e 2016-05-07 -c beta -f csv -o /tmp/fx_beta_data.csv
+```
+
 ## Running tests
 
 Install test prerequisites via `pip`:
