@@ -12,13 +12,13 @@ from tabulate import (tabulate, TableFormat, DataRow)
 from dateutil.relativedelta import relativedelta
 from pprint import pprint
 from requests.utils import quote
-import clouseau.socorro as socorro
-import clouseau.utils as utils
-from clouseau.bugzilla import Bugzilla
-import clouseau.versions
-import clouseau.dataanalysis as dataanalysis
-from clouseau.connection import (Connection, Query)
-import clouseau.gmail
+import libmozdata.socorro as socorro
+import libmozdata.utils as utils
+from libmozdata.bugzilla import Bugzilla
+import libmozdata.versions
+import libmozdata.dataanalysis as dataanalysis
+from libmozdata.connection import (Connection, Query)
+import libmozdata.gmail
 
 
 args_pattern = re.compile('\([^\)]*\)')
@@ -562,7 +562,7 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', sign
     if product == 'Firefox':
         channel.append('esr')
 
-    base_versions = clouseau.versions.get(base=True)
+    base_versions = libmozdata.versions.get(base=True)
     versions_by_channel = socorro.ProductVersions.get_info_from_major(base_versions, product=product)
     channel_by_version = {}
     vbc = {}
@@ -1003,4 +1003,4 @@ if __name__ == "__main__":
         if args.nag_dev:
             with open(args.log, 'r') as f:
                 data = f.read()
-                clouseau.gmail.send(args.nag_dev, 'Error in statusflags.py', data)
+                libmozdata.gmail.send(args.nag_dev, 'Error in statusflags.py', data)

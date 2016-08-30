@@ -9,10 +9,10 @@ from pprint import pprint
 import utils
 import math
 import re
-from FileStats import FileStats
-import backtrace
-import socorro
-import memory
+from libmozdata.FileStats import FileStats
+from libmozdata import backtrace
+from libmozdata import socorro
+from libmozdata import memory
 
 
 class Track(object):

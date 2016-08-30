@@ -3,11 +3,11 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from collections import defaultdict
-import clouseau.utils as utils
+import libmozdata.utils as utils
 import argparse
-import clouseau.socorro as socorro
-from clouseau.connection import Query
-import clouseau.versions
+import libmozdata.socorro as socorro
+from libmozdata.connection import Query
+import libmozdata.versions
 
 
 def get(signature, matching_mode, module, addon, product='Firefox', channel=['all'], versions=[], start_date='', limit=0, check_bt=False, verbose=False, ratio=1.):
@@ -22,7 +22,7 @@ def get(signature, matching_mode, module, addon, product='Firefox', channel=['al
         channel = [c.lower() for c in channel]
 
     if not versions:
-        base_versions = clouseau.versions.get(base=True)
+        base_versions = libmozdata.versions.get(base=True)
         versions_by_channel = socorro.ProductVersions.get_info_from_major(base_versions, product=product)
         versions = []
         for v1 in versions_by_channel.values():

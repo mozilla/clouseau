@@ -5,7 +5,7 @@
 import unittest
 import os
 from clouseau.stability import crashes
-from clouseau.redash import Redash
+from libmozdata.redash import Redash
 
 
 class CrashesTest(unittest.TestCase):

@@ -8,10 +8,10 @@ import math
 import functools
 from datetime import (datetime, timedelta)
 from pprint import pprint
-import clouseau.socorro as socorro
-import clouseau.utils as utils
-from clouseau.redash import Redash
-from clouseau.connection import Query
+import libmozdata.socorro as socorro
+import libmozdata.utils as utils
+from libmozdata.redash import Redash
+from libmozdata.connection import Query
 
 
 def __crash_handler(throttle, json, data):

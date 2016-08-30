@@ -8,11 +8,11 @@ import os
 from bisect import bisect
 from dateutil.relativedelta import relativedelta
 from datetime import datetime
-from . import socorro
-from . import utils
-from .connection import Query
-from . import patchanalysis
-from . import config
+from libmozdata import socorro
+from libmozdata import utils
+from libmozdata.connection import Query
+from libmozdata import patchanalysis
+from libmozdata import config
 import matplotlib
 matplotlib.use('Agg')  # NOQA
 import matplotlib.pyplot as plt

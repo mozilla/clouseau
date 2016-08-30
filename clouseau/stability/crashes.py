@@ -10,14 +10,15 @@ import six
 import functools
 from datetime import (datetime, timedelta)
 import os
-import clouseau.socorro as socorro
-import clouseau.utils as utils
-from clouseau.redash import Redash
-from clouseau.connection import (Connection, Query)
-from clouseau.bugzilla import Bugzilla
-import clouseau.versions
+from libmozdata import config
+import libmozdata.socorro as socorro
+import libmozdata.utils as utils
+from libmozdata.redash import Redash
+from libmozdata.connection import (Connection, Query)
+from libmozdata.bugzilla import Bugzilla
+import libmozdata.versions
 
-v = clouseau.versions.get(base=True)
+v = libmozdata.versions.get(base=True)
 
 # http://bugs.python.org/issue7980
 datetime.strptime('', '')
@@ -289,9 +290,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    config.set_config(config.ConfigIni(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'config.ini')))
+
     for channel in args.channels:
         for startup in [False, True]:
-            print('Getting top-' + args.tclimit + (' startup ' if startup else ' ') + 'crashes for the \'' + channel + '\' channel')
+            print('Getting top-' + str(args.tclimit) + (' startup ' if startup else ' ') + 'crashes for the \'' + channel + '\' channel')
 
             stats = get(channel, args.date, duration=int(args.duration), tc_limit=int(args.tclimit), startup=startup)
 

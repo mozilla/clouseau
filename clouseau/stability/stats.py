@@ -7,8 +7,8 @@ from datetime import datetime
 import numbers
 import csv
 import json
-import clouseau.socorro as socorro
-import clouseau.utils as utils
+import libmozdata.socorro as socorro
+import libmozdata.utils as utils
 from pprint import pprint
 
 
