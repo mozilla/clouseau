@@ -262,8 +262,8 @@ def get_last_bug(bugids, sgn, sgninfo, patchesinfo, bugsinfo, min_date):
               (False, False): lasts['unresolved-unassigned']}
 
     untimely_bug = None
-    # one_year_ago = pytz.utc.localize(utils.get_date_ymd('today_utc')) - relativedelta(years=1)
-    six_months_ago = pytz.utc.localize(utils.get_date_ymd('today_utc')) - relativedelta(month=6)
+    # one_year_ago = utils.get_date_ymd('today') - relativedelta(years=1)
+    six_months_ago = utils.get_date_ymd('today') - relativedelta(month=6)
 
     for bugid in bugids:
         bugid = str(bugid)
@@ -332,7 +332,6 @@ def get_last_bug(bugids, sgn, sgninfo, patchesinfo, bugsinfo, min_date):
 
 def __analyze(signatures, status_flags):
     result = {}
-    pprint(signatures)
     for signature, data in signatures.items():
         res = {'signature': signature,
                'bugid': None,
@@ -358,7 +357,7 @@ def __analyze(signatures, status_flags):
                     res['firefox'] = False
                 else:
                     sflag = bug[sflag]
-                    if sflag == '---' or (sflag == 'unaffected' and ac not in data['no_change']):
+                    if sflag == '---' or (sflag == 'unaffected' and channel not in data['no_change']):
                         added = True
                         res['affected'].append(ac)
                 if not added:
@@ -371,8 +370,6 @@ def __analyze(signatures, status_flags):
         elif bug:
             res['private'] = True
             result[signature] = res
-
-    pprint(result)
 
     return result
 
@@ -461,7 +458,7 @@ def __get_signatures(limit, product, versions, channel, search_date, signatures,
                                  handler=handler_ss, handlerdata=__signatures))
         socorro.SuperSearch(queries=queries).wait()
     else:
-        socorro.SuperSearch(params={'product': product, 'signature': '=mozilla::ipc::ProcessLink::SendMessageW',
+        socorro.SuperSearch(params={'product': product,
                                     'version': all_versions,
                                     'release_channel': channel,
                                     'date': search_date,
@@ -587,7 +584,6 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', sign
                     min_date = d
 
     versions_by_channel = vbc
-    min_date = pytz.utc.localize(min_date)
 
     __warn('Versions: %s' % versions_by_channel, verbose)
     __warn('Start dates: %s' % start_date_by_channel, verbose)
