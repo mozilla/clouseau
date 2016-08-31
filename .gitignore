@@ -3,5 +3,5 @@
 *.pyo
 .coverage
 htmlcov/
-config.ini
+mozdata.ini
 .ipynb_checkpoints/
