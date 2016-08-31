@@ -6,7 +6,6 @@
 import argparse
 import re
 import functools
-import pytz
 import logging
 from tabulate import (tabulate, TableFormat, DataRow)
 from dateutil.relativedelta import relativedelta
@@ -109,7 +108,7 @@ def __get_bugs_info(bugids, status_flags):
                                    'fixed': is_fixed,
                                    'patched': has_patch,
                                    'assigned': has_assignee,
-                                   'last_change': last_change_date.astimezone(pytz.utc),
+                                   'last_change': last_change_date,
                                    'fixed_dates': fixed_dates,
                                    'no_change': chan_to_not_change}
         else:
@@ -126,7 +125,7 @@ def __get_bugs_info(bugids, status_flags):
                                     'fixed': False,
                                     'patched': False,
                                     'assigned': False,
-                                    'last_change': last_change_date.astimezone(pytz.utc),
+                                    'last_change': last_change_date,
                                     'fixed_dates': [],
                                     'no_change': set()}
 
