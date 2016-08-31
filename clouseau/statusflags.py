@@ -94,7 +94,7 @@ def __get_bugs_info(bugids, status_flags):
                     elif field_name == 'assigned_to':
                         has_assignee = change.get('added', None) != 'nobody@mozilla.org'
                     elif field_name in status_flags.values():
-                        if change.get('added', None) == 'unaffected' and change.get('removed', None) == 'affected':
+                        if change.get('added', None) in ['unaffected', '---'] and change.get('removed', None) == 'affected':
                             for k, v in status_flags.items():
                                 if v == field_name:
                                     chan_to_not_change.add(k)
@@ -356,7 +356,7 @@ def __analyze(signatures, status_flags):
                     res['firefox'] = False
                 else:
                     sflag = bug[sflag]
-                    if sflag == '---' or (sflag == 'unaffected' and channel not in data['no_change']):
+                    if channel not in data['no_change'] and sflag in ['---', 'unaffected']:
                         added = True
                         res['affected'].append(ac)
                 if not added:
