@@ -449,11 +449,11 @@ def get_signatures(limit, product, versions, channel, search_date, signatures, b
     if signatures or bug_ids:
         if bug_ids:
             _sgns = Bugzilla.get_signatures(bug_ids)
-            s = set(signatures)
+            set_sgns = set(signatures)
             for ss in _sgns.values():
                 if ss:
-                    s = s.union(set(ss))
-            signatures = list(s)
+                    set_sgns = set_sgns.union(set(ss))
+            signatures = list(set_sgns)
         queries = []
         for sgns in Connection.chunks(signatures, 10):
             queries.append(Query(socorro.SuperSearch.URL,
