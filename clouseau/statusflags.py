@@ -953,7 +953,7 @@ def update_status_flags(info, update=False, verbose=False):
     for bugid, data in bugs_to_update.items():
         __warn('Bug %d: %s' % (bugid, str(data)), verbose)
         __warn(data['comment']['body'], verbose)
-        if False and update:
+        if update:
             Bugzilla([str(bugid)]).put(data)
 
     if update:
