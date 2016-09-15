@@ -4,11 +4,38 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import argparse
+import re
+import requests
 from pprint import pprint
 import libmozdata.utils as utils
 import libmozdata.versions
 import libmozdata.socorro as socorro
 from libmozdata.connection import Query
+
+
+def query_dxr(q):
+    r = requests.get('https://dxr.mozilla.org/mozilla-central/search', params={
+        'q': q,
+        'limit': 1000
+    }, headers={
+        'Accept': 'application/json'
+    })
+
+    if r.status_code != 200:
+        print(r.text)
+        raise Exception(r)
+
+    return r.json()
+
+
+def get_critical_errors():
+    results = query_dxr('gfxCriticalError(')['results'] + query_dxr('gfxCriticalNote <<')['results'] + query_dxr('gfxCriticalErrorOnce(')['results']
+
+    matches = [re.search(r'"(.*?)"', line['line']) for result in results for line in result['lines']]
+
+    errors = [match.group(1) for match in matches if match is not None]
+
+    return [error for error in errors if error != ', ']
 
 
 def analyze_gfx_critical_errors(signature='', product='Firefox', channel=['all'], versions=[], start_date=''):
@@ -33,7 +60,7 @@ def analyze_gfx_critical_errors(signature='', product='Firefox', channel=['all']
     if not start_date:
         start_date = utils.get_date('today', 7)
 
-    gfx_critical_errors = [line.rstrip('\n') for line in open('clouseau/gfx_critical_errors.txt')]
+    gfx_critical_errors = get_critical_errors()
 
     count = {}
 
