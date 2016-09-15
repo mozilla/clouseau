@@ -73,4 +73,4 @@ if __name__ == "__main__":
 
     count = analyze_gfx_critical_errors(args.signature, args.product, args.channel, args.versions, args.start_date)
 
-    pprint(sorted(count.items(), key=lambda (k, v): v, reverse=True))
+    pprint(sorted(count.items(), key=lambda v: v[1], reverse=True))
