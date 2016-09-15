@@ -479,7 +479,7 @@ def get_signatures(limit, product, versions, channel, search_date, signatures, b
     return __signatures
 
 
-def get_crash_positions(limit, product, versions, channel, search_date='', verbose=False):
+def get_crash_positions(limit, product, versions, channel, search_date='', end_date='today', verbose=False):
     def handler_ss(chan, json, data):
         if json['errors']:
             __warn('Error in getting ranks: %s' % str(json['errors']), verbose)
@@ -517,7 +517,7 @@ def get_crash_positions(limit, product, versions, channel, search_date='', verbo
     queries = []
     data = {}
     if not search_date:
-        search_date = socorro.SuperSearch.get_search_date(utils.get_date('today', 7))
+        search_date = socorro.SuperSearch.get_search_date(utils.get_date(end_date, 7))
     if limit == -1:
         limit = 1000000
 
@@ -620,8 +620,7 @@ def get_stats_for_past_weeks(product, channel, start_date_by_channel, versions_b
     trends = {}
     signatures_by_chan = {}
     default_trend_by_chan = {}
-    today = utils.get_date_ymd('today')
-    ref_w = today.isocalendar()[1]
+    ref_w = utils.get_date_ymd(end_date).isocalendar()[1]
 
     def get_past_week(date):
         isodate = date.isocalendar()
@@ -681,7 +680,7 @@ def get_stats_for_past_weeks(product, channel, start_date_by_channel, versions_b
     return trends
 
 
-def get(product='Firefox', limit=1000, verbose=False, search_start_date='', signatures=[], bug_ids=[], max_bugs=-1):
+def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_date=None, signatures=[], bug_ids=[], max_bugs=-1):
     """Get crashes info
 
     Args:
@@ -706,7 +705,8 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', sign
     __warn('Versions: %s' % versions_by_channel, verbose)
     __warn('Start dates: %s' % start_date_by_channel, verbose)
 
-    end_date = utils.get_date('today')
+    if not end_date:
+        end_date = utils.get_date('today')
     search_date = get_search_date(search_start_date, start_date, end_date)
 
     signatures = get_signatures(limit, product, versions_by_channel, channel, search_date, signatures, bug_ids, verbose)
@@ -839,10 +839,11 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', sign
     return {'status_flags': status_flags,
             'base_versions': base_versions,
             'start_dates': start_date_by_channel,
-            'signatures': analysis}
+            'signatures': analysis,
+            'end_date': end_date}
 
 
-def generate_bug_report(sgn, info, status_flags_by_channel, base_versions, start_date_by_channel):
+def generate_bug_report(sgn, info, status_flags_by_channel, base_versions, start_date_by_channel, end_date):
     data = {}
     if info['firefox']:
         volumes = default_volumes.copy()
@@ -886,7 +887,7 @@ def generate_bug_report(sgn, info, status_flags_by_channel, base_versions, start
             table.append(row)
 
         if not empty:  # we've trends
-            monday, sunday = utils.get_monday_sunday(utils.get_date_ymd('today'))
+            monday, sunday = utils.get_monday_sunday(utils.get_date_ymd(end_date))
             comment += '\n\nCrash volume on the last weeks (Week N is from %s to %s):\n' % (monday.strftime('%m-%d'), sunday.strftime('%m-%d'))
             headers = ['']
             for w in range(1, N + 1):
@@ -936,6 +937,7 @@ def update_status_flags(info, update=False, verbose=False):
     status_flags_by_channel = info['status_flags']
     base_versions = info['base_versions']
     start_date_by_channel = info['start_dates']
+    end_date = info['end_date']
 
     for c, d in start_date_by_channel.items():
         start_date_by_channel[c] = utils.get_date_str(d)
@@ -943,15 +945,15 @@ def update_status_flags(info, update=False, verbose=False):
     bugs_to_update = {}
 
     for sgn, i in info['signatures'].items():
-        data = generate_bug_report(sgn, i, status_flags_by_channel, base_versions, start_date_by_channel)
+        data = generate_bug_report(sgn, i, status_flags_by_channel, base_versions, start_date_by_channel, end_date)
         if data:
             bugid = i['bugid']
             bugs_to_update[bugid] = data
 
     for bugid, data in bugs_to_update.items():
         __warn('Bug %d: %s' % (bugid, str(data)), verbose)
-        __prettywarn((bugid, data), verbose)
-        if update:
+        __warn(data['comment']['body'], verbose)
+        if False and update:
             Bugzilla([str(bugid)]).put(data)
 
     if update:
