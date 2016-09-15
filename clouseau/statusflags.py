@@ -10,7 +10,6 @@ import logging
 from tabulate import (tabulate, TableFormat, DataRow)
 from dateutil.relativedelta import relativedelta
 from pprint import pprint
-from requests.utils import quote
 import libmozdata.socorro as socorro
 import libmozdata.utils as utils
 from libmozdata.bugzilla import Bugzilla
@@ -19,6 +18,10 @@ import libmozdata.dataanalysis as dataanalysis
 from libmozdata.connection import (Connection, Query)
 import libmozdata.gmail
 
+
+channel_order = {'nightly': 0, 'aurora': 1, 'beta': 2, 'release': 3, 'esr': 4}
+platform_order = {'Windows': 0, 'Mac OS X': 1, 'Linux': 2}
+default_volumes = {c: 0 for c in channel_order.keys()}
 
 args_pattern = re.compile('\([^\)]*\)')
 template_pattern = re.compile('<[^>]*>')
@@ -50,7 +53,7 @@ def __mk_volume_table(table, ty, headers=(), **kwargs):
         return tabulate(table, headers=headers, tablefmt=rank_tablefmt, **kwargs)
 
 
-def __get_bugs_info(bugids, status_flags):
+def get_bugs_info(bugids, status_flags):
     def history_handler(_history, data):
         bots = {'automation@bmo.tld', 'release-mgmt-account-bot@mozilla.tld'}
         bugid = str(_history['id'])
@@ -178,7 +181,7 @@ def __is_same_signatures(signatures, simplifiers):
     for signature in filter(None, signatures):
         signature = map(lambda s: s.strip(' \t'), signature.split('|'))
         for simplifier in simplifiers:
-            signature = map(lambda s: simplifier(s), signature)
+            signature = map(simplifier, signature)
         signature = '|'.join(filter(None, signature))
         if signature:
             s.add(signature)
@@ -187,7 +190,7 @@ def __is_same_signatures(signatures, simplifiers):
     if n in [0, 1]:
         return True
     elif n == 2:
-        s = map(lambda sgn: __namespace(sgn), s)
+        s = list(map(lambda sgn: __namespace(sgn), s))
         return s[0] == s[1]
     else:
         return False
@@ -211,29 +214,25 @@ def filter_bugs(bugids, product):
 
         signatures = bug.get('cf_crash_signature', None)
         if signatures:
-            if '\r\n' not in signatures:
-                # we should have only one signature
-                data.add(bug['id'])
-            else:
-                if '[@' in signatures:
-                    signatures = map(lambda s: s.strip(' \t\r\n'), signatures.split('[@'))
-                    signatures = map(lambda s: s[:-1].strip(' \t\r\n'), filter(None, signatures))
+            if '[@' in signatures:
+                signatures = map(lambda s: s.strip(' \t\r\n'), signatures.split('[@'))
+                signatures = map(lambda s: s[:-1].strip(' \t\r\n'), filter(None, signatures))
 
-                    if __is_same_signatures(signatures, [functools.partial(__name, ['@0x0',
-                                                                                    'F1398665248_____________________________',
-                                                                                    'unknown',
-                                                                                    'OOM',
-                                                                                    'hang',
-                                                                                    'small',
-                                                                                    '_purecall',
-                                                                                    'je_free',
-                                                                                    'large']),
-                                                         __foo_at_address,
-                                                         __foo_args,
-                                                         __const]):
-                        data.add(bug['id'])
-                    else:
-                        bad.append(signatures)
+                if __is_same_signatures(signatures, [functools.partial(__name, ['@0x0',
+                                                                                'F1398665248_____________________________',
+                                                                                'unknown',
+                                                                                'OOM',
+                                                                                'hang',
+                                                                                'small',
+                                                                                '_purecall',
+                                                                                'je_free',
+                                                                                'large']),
+                                                     __foo_at_address,
+                                                     __foo_args,
+                                                     __const]):
+                    data.add(bug['id'])
+                else:
+                    bad.append(signatures)
         else:
             data.add(bug['id'])
 
@@ -243,7 +242,7 @@ def filter_bugs(bugids, product):
     return data
 
 
-def get_last_bug(bugids, sgn, sgninfo, patchesinfo, bugsinfo, min_date):
+def get_last_bugs_info(bugids, sgn, sgninfo, patchesinfo, bugsinfo, min_date):
     if not bugids:
         return None
 
@@ -261,8 +260,6 @@ def get_last_bug(bugids, sgn, sgninfo, patchesinfo, bugsinfo, min_date):
               (False, False): lasts['unresolved-unassigned']}
 
     untimely_bug = None
-    # one_year_ago = utils.get_date_ymd('today') - relativedelta(years=1)
-    six_months_ago = utils.get_date_ymd('today') - relativedelta(month=6)
 
     for bugid in bugids:
         bugid = str(bugid)
@@ -295,6 +292,14 @@ def get_last_bug(bugids, sgn, sgninfo, patchesinfo, bugsinfo, min_date):
                 if faulty_chan or i[1] < info['last_change']:
                     i[0] = bugid
                     i[1] = info['last_change']
+
+    return lasts, untimely_bug
+
+
+def get_last_bug(bugids, sgn, sgninfo, patchesinfo, bugsinfo, min_date):
+    lasts, untimely_bug = get_last_bugs_info(bugids, sgn, sgninfo, patchesinfo, bugsinfo, min_date)
+    # one_year_ago = utils.get_date_ymd('today') - relativedelta(years=1)
+    six_months_ago = utils.get_date_ymd('today') - relativedelta(month=6)
 
     if lasts['resolved-fixed-patched'][1] >= min_date:  # We've a patch in the last days
         toreturn = None
@@ -329,7 +334,26 @@ def get_last_bug(bugids, sgn, sgninfo, patchesinfo, bugsinfo, min_date):
         return None
 
 
-def __analyze(signatures, status_flags):
+def add_bug_info(signatures, bugs, status_flags, verbose):
+    include_fields = ['status', 'id', 'cf_crash_signature'] + list(status_flags.values())
+    bug_info = {}
+
+    def bug_handler(bug, data):
+        data[str(bug['id'])] = bug
+
+    Bugzilla(bugs, include_fields=include_fields, bughandler=bug_handler, bugdata=bug_info).get_data().wait()
+    __warn('Collected bug info: Ok', verbose)
+
+    for info in signatures.values():
+        bug = info['selected_bug']
+        if bug:
+            if bug in bug_info:
+                info['selected_bug'] = bug_info[bug]
+            else:
+                info['selected_bug'] = 'private'
+
+
+def analyze(signatures, status_flags):
     result = {}
     for signature, data in signatures.items():
         res = {'signature': signature,
@@ -373,25 +397,7 @@ def __analyze(signatures, status_flags):
     return result
 
 
-def __get_signatures_from_bug_ids(bugids):
-    if not bugids:
-        return set()
-
-    def bug_handler(bug, data):
-        signatures = bug.get('cf_crash_signature', None)
-        if signatures:
-            signatures = map(lambda s: s.strip(' \t\r\n'), signatures.split('[@'))
-            signatures = map(lambda s: s[:-1].strip(' \t\r\n'), filter(None, signatures))
-            for s in filter(None, signatures):
-                data.add(s)
-
-    data = set()
-    Bugzilla(bugids=bugids, include_fields=['cf_crash_signature'], bughandler=bug_handler, bugdata=data).wait()
-
-    return data
-
-
-def __get_signatures(limit, product, versions, channel, search_date, signatures, bug_ids, verbose):
+def get_signatures(limit, product, versions, channel, search_date, signatures, bug_ids, verbose):
     if limit <= 0:
         count = []
         socorro.SuperSearch(params={'product': product,
@@ -441,8 +447,13 @@ def __get_signatures(limit, product, versions, channel, search_date, signatures,
         all_versions += versions[c]
 
     if signatures or bug_ids:
-        _sgns = __get_signatures_from_bug_ids(bug_ids)
-        signatures = list(_sgns.union(signatures))
+        if bug_ids:
+            _sgns = Bugzilla.get_signatures(bug_ids)
+            set_sgns = set(signatures)
+            for ss in _sgns.values():
+                if ss:
+                    set_sgns = set_sgns.union(set(ss))
+            signatures = list(set_sgns)
         queries = []
         for sgns in Connection.chunks(signatures, 10):
             queries.append(Query(socorro.SuperSearch.URL,
@@ -465,14 +476,13 @@ def __get_signatures(limit, product, versions, channel, search_date, signatures,
                                     '_facets_size': max(limit, 100),
                                     '_results_number': 0},
                             handler=handler_ss, handlerdata=__signatures, timeout=300).wait()
-
     return __signatures
 
 
-def __get_crash_positions(limit, product, versions, channel, search_date, verbose):
+def get_crash_positions(limit, product, versions, channel, search_date='', end_date='today', verbose=False):
     def handler_ss(chan, json, data):
         if json['errors']:
-            pprint(json['errors'])
+            __warn('Error in getting ranks: %s' % str(json['errors']), verbose)
 
         signatures = {}
         for sgn in json['facets']['signature']:
@@ -493,17 +503,8 @@ def __get_crash_positions(limit, product, versions, channel, search_date, verbos
             signatures[signature] = {'browser': browser, 'content': content, 'plugin': plugin}
 
         # now we sort the data according to the crash volume
-        def comp(x, y):
-            def __cmp(a, b):
-                return (a > b) - (a < b)
-
-            c = __cmp(x[0], y[0])
-            if c == 0:
-                return -__cmp(x[1], y[1])
-            return c
-
         types = ['browser', 'content', 'plugin']
-        rank = [sorted(signatures.items(), cmp=comp, key=lambda t: (t[1][typ], t[0]), reverse=True) for typ in types]
+        rank = [sorted(signatures.items(), key=lambda t: (-t[1][typ], t[0])) for typ in types]
         rank = [{r[i][0]: i + 1 for i in range(len(r))} for r in rank]
 
         for s, v in signatures.items():
@@ -515,7 +516,11 @@ def __get_crash_positions(limit, product, versions, channel, search_date, verbos
 
     queries = []
     data = {}
-    search_date = socorro.SuperSearch.get_search_date(utils.get_date('today', 7))
+    if not search_date:
+        search_date = socorro.SuperSearch.get_search_date(utils.get_date(end_date, 7))
+    if limit == -1:
+        limit = 1000000
+
     for chan in channel:
         data[chan] = {}
         queries.append(Query(socorro.SuperSearch.URL,
@@ -525,11 +530,11 @@ def __get_crash_positions(limit, product, versions, channel, search_date, verbos
                               'date': search_date,
                               '_aggs.signature': 'process_type',
                               '_facets': 'signature',
-                              '_facets_size': 1000000,
+                              '_facets_size': limit,
                               '_results_number': 0},
                              handler=functools.partial(handler_ss, chan), handlerdata=data))
 
-    return (socorro.SuperSearch(queries=queries), data)
+    return socorro.SuperSearch(queries=queries), data
 
 
 def __warn(str, verbose=True):
@@ -538,26 +543,12 @@ def __warn(str, verbose=True):
     logging.debug(str)
 
 
-def get(product='Firefox', limit=1000, verbose=False, search_start_date='', signatures=[], bug_ids=[], max_bugs=-1):
-    """Get crashes info
+def __prettywarn(obj, verbose=True):
+    if verbose:
+        pprint(obj)
 
-    Args:
-        product (Optional[str]): the product
-        limit (Optional[int]): the number of crashes to get from tcbs
 
-    Returns:
-        dict: contains all the info about how to update flags
-    """
-    p = product.lower()
-    if p == 'firefox':
-        product = 'Firefox'
-    elif p == 'fennecandroid':
-        product = 'FennecAndroid'
-
-    channel = ['release', 'beta', 'aurora', 'nightly']
-    if product == 'Firefox':
-        channel.append('esr')
-
+def get_versions_info(product):
     base_versions = libmozdata.versions.get(base=True)
     versions_by_channel = socorro.ProductVersions.get_info_from_major(base_versions, product=product)
     channel_by_version = {}
@@ -565,7 +556,7 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', sign
     start_date_by_channel = {}
     start_date = utils.get_date_ymd('today')
     min_date = start_date
-    for chan, versions in versions_by_channel.iteritems():
+    for chan, versions in versions_by_channel.items():
         start_date_by_channel[chan] = utils.get_date_ymd('tomorrow')
         l = []
         vbc[chan] = l
@@ -582,43 +573,23 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', sign
                 if chan != 'esr' and d < min_date:
                     min_date = d
 
-    versions_by_channel = vbc
+    return start_date, min_date, vbc, start_date_by_channel, base_versions
 
-    __warn('Versions: %s' % versions_by_channel, verbose)
-    __warn('Start dates: %s' % start_date_by_channel, verbose)
 
-    end_date = utils.get_date('today')
+def get_search_date(search_start_date, start_date, end_date=utils.get_date('today')):
     if search_start_date:
-        search_date = socorro.SuperSearch.get_search_date(search_start_date, end_date)
+        return socorro.SuperSearch.get_search_date(search_start_date, end_date)
     else:
-        search_date = socorro.SuperSearch.get_search_date(utils.get_date_str(start_date), end_date)
+        return socorro.SuperSearch.get_search_date(utils.get_date_str(start_date), end_date)
 
-    signatures = __get_signatures(limit, product, versions_by_channel, channel, search_date, signatures, bug_ids, verbose)
-    # signatures == { 'foo::bar': {'affected_channels': [('release', 1234), ...],
-    #                              'bugs': None,
-    #                              'platforms': ['Windows'],
-    #                              'selected_bug': None}, ... }
 
-    __warn('Collected signatures: %d' % len(signatures), verbose)
-
-    # get the bugs for each signatures
-    bugs_by_signature = socorro.Bugs.get_bugs(signatures.keys())
-
-    # if we've some bugs in bug_ids then we must remove the other ones for a given signature
-    if bug_ids:
-        bids = set(bug_ids)
-        for s, bugids in bugs_by_signature.items():
-            inter = bids.intersection(bugids)
-            if inter:
-                bugs_by_signature[s] = inter
-
-    __warn('Collected bugs in Socorro: Ok', verbose)
-
+def reduce_set_of_bugs(bugs_by_signature):
     # we remove dup bugs
     # for example if we've {1,2,3,4,5} and if 2 is a dup of 5 then the set will be reduced to {1,3,4,5}
     bugs = set()
     for v in bugs_by_signature.values():
         bugs = bugs.union(v)
+
     dups = Bugzilla.follow_dup(bugs, only_final=False)
     bugs_count = 0
     bugs.clear()
@@ -641,93 +612,15 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', sign
         bugs_count += len(diff)
         bugs = bugs.union(diff)
 
-    __warn('Remove duplicates: Ok', verbose)
-    __warn('Bugs to analyze: %d' % bugs_count, verbose)
+    return bugs, bugs_count
 
-    # we filter the bugs to remove meaningless ones
-    if not bug_ids:
-        bugs = filter_bugs(bugs, product)
 
-    status_flags = Bugzilla.get_status_flags(base_versions=base_versions)
-
-    # we get the "better" bug where to update the info
-    bugs_history_info = __get_bugs_info(bugs, status_flags)
-
-    patched_bugs = []
-    for bugid, hinfo in bugs_history_info.items():
-        if hinfo['patched']:
-            patched_bugs.append(bugid)
-
-    if patched_bugs:
-        patch_info = dataanalysis.analyze_bugs(patched_bugs, min_date=min_date)
-    else:
-        patch_info = {}
-
-    crashes_to_reopen = []
-    bugs.clear()
-    for s, v in bugs_by_signature.items():
-        info = signatures[s]
-        no_change = set()
-        if v:
-            bug_to_touch = get_last_bug(v, s, signatures[s], patch_info, bugs_history_info, min_date)
-            if bug_to_touch:
-                no_change = bugs_history_info[bug_to_touch]['no_change']
-            else:
-                crashes_to_reopen.append(s)
-        else:
-            bug_to_touch = None
-
-        info['selected_bug'] = bug_to_touch
-        info['bugs'] = v
-        info['no_change'] = no_change
-        if bug_to_touch:
-            bugs.add(bug_to_touch)
-
-    __warn('Collected last bugs: %d' % len(bugs), verbose)
-
-    # get bug info
-    include_fields = ['status', 'id', 'cf_crash_signature'] + status_flags.values()
-    bug_info = {}
-
-    def bug_handler(bug, data):
-        data[str(bug['id'])] = bug
-
-    Bugzilla(list(bugs), include_fields=include_fields, bughandler=bug_handler, bugdata=bug_info).get_data().wait()
-
-    __warn('Collected bug info: Ok', verbose)
-
-    for info in signatures.values():
-        bug = info['selected_bug']
-        if bug:
-            if bug in bug_info:
-                info['selected_bug'] = bug_info[bug]
-            else:
-                info['selected_bug'] = 'private'
-
-    analysis = __analyze(signatures, status_flags)
-
-    if max_bugs > 0:
-        __analysis = {}
-        count = 0
-        for signature, info in analysis.items():
-            if info['firefox']:
-                __analysis[signature] = info
-                count += 1
-                if count == max_bugs:
-                    analysis = __analysis
-                    break
-
-    __warn('Analysis: Ok', verbose)
-
-    positions_result, positions = __get_crash_positions(limit, product, versions_by_channel, channel, search_date, verbose)
-
-    # Now get the number of crashes for each signature
+def get_stats_for_past_weeks(product, channel, start_date_by_channel, versions_by_channel, analysis, search_start_date, end_date):
     queries = []
     trends = {}
     signatures_by_chan = {}
     default_trend_by_chan = {}
-    today = utils.get_date_ymd('today')
-    ref_w = today.isocalendar()[1]
+    ref_w = utils.get_date_ymd(end_date).isocalendar()[1]
 
     def get_past_week(date):
         isodate = date.isocalendar()
@@ -784,6 +677,129 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', sign
                            handler=functools.partial(handler_ss, chan), handlerdata=trends))
     socorro.SuperSearch(queries=queries).wait()
 
+    return trends
+
+
+def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_date=None, signatures=[], bug_ids=[], max_bugs=-1):
+    """Get crashes info
+
+    Args:
+        product (Optional[str]): the product
+        limit (Optional[int]): the number of crashes to get from tcbs
+
+    Returns:
+        dict: contains all the info about how to update flags
+    """
+    p = product.lower()
+    if p == 'firefox':
+        product = 'Firefox'
+    elif p == 'fennecandroid':
+        product = 'FennecAndroid'
+
+    channel = ['release', 'beta', 'aurora', 'nightly']
+    if product == 'Firefox':
+        channel.append('esr')
+
+    start_date, min_date, versions_by_channel, start_date_by_channel, base_versions = get_versions_info(product)
+
+    __warn('Versions: %s' % versions_by_channel, verbose)
+    __warn('Start dates: %s' % start_date_by_channel, verbose)
+
+    if not end_date:
+        end_date = utils.get_date('today')
+    search_date = get_search_date(search_start_date, start_date, end_date)
+
+    signatures = get_signatures(limit, product, versions_by_channel, channel, search_date, signatures, bug_ids, verbose)
+    # signatures == { 'foo::bar': {'affected_channels': [('release', 1234), ...],
+    #                              'bugs': None,
+    #                              'platforms': ['Windows'],
+    #                              'selected_bug': None}, ... }
+
+    __warn('Collected signatures: %d' % len(signatures), verbose)
+
+    # get the bugs for each signatures
+    bugs_by_signature = socorro.Bugs.get_bugs(list(signatures.keys()))
+
+    # if we've some bugs in bug_ids then we must remove the other ones for a given signature
+    if bug_ids:
+        bids = set(bug_ids)
+        for s, bugids in bugs_by_signature.items():
+            inter = bids.intersection(bugids)
+            if inter:
+                bugs_by_signature[s] = inter
+
+    __warn('Collected bugs in Socorro: Ok', verbose)
+
+    bugs, bugs_count = reduce_set_of_bugs(bugs_by_signature)
+
+    __warn('Remove duplicates: Ok', verbose)
+    __warn('Bugs to analyze: %d' % bugs_count, verbose)
+
+    # we filter the bugs to remove meaningless ones
+    if not bug_ids:
+        bugs = filter_bugs(bugs, product)
+
+    status_flags = Bugzilla.get_status_flags(base_versions=base_versions)
+
+    # we get the "better" bug where to update the info
+    bugs_history_info = get_bugs_info(bugs, status_flags)
+
+    patched_bugs = []
+    for bugid, hinfo in bugs_history_info.items():
+        if hinfo['patched']:
+            patched_bugs.append(bugid)
+
+    if patched_bugs:
+        patch_info = dataanalysis.analyze_bugs(patched_bugs, min_date=min_date)
+    else:
+        patch_info = {}
+
+    crashes_to_reopen = []
+    bugs.clear()
+    for s, v in bugs_by_signature.items():
+        info = signatures[s]
+        no_change = set()
+        if v:
+            bug_to_touch = get_last_bug(v, s, signatures[s], patch_info, bugs_history_info, min_date)
+            if bug_to_touch:
+                no_change = bugs_history_info[bug_to_touch]['no_change']
+            else:
+                crashes_to_reopen.append(s)
+        else:
+            bug_to_touch = None
+
+        info['selected_bug'] = bug_to_touch
+        info['bugs'] = v
+        info['no_change'] = no_change
+        if bug_to_touch:
+            bugs.add(bug_to_touch)
+
+    __warn('Collected last bugs: %d' % len(bugs), verbose)
+
+    # add bug info in signatures
+    add_bug_info(signatures, list(bugs), status_flags, verbose)
+
+    # analyze the signatures
+    analysis = analyze(signatures, status_flags)
+
+    if max_bugs > 0:
+        __analysis = {}
+        count = 0
+        for signature, info in analysis.items():
+            if info['firefox']:
+                __analysis[signature] = info
+                count += 1
+                if count == max_bugs:
+                    analysis = __analysis
+                    break
+
+    __warn('Analysis: Ok', verbose)
+
+    positions_result, positions = get_crash_positions(-1, product, versions_by_channel, channel, verbose=verbose)
+
+    # Now get the number of crashes for each signature
+    trends = get_stats_for_past_weeks(product, channel, start_date_by_channel, versions_by_channel, analysis, search_start_date, end_date)
+
     noisy = set()
     # check for the noise
     for sgn, data in trends.items():
@@ -818,150 +834,131 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', sign
                 ranks[chan] = positions[chan].get(signature, empty_ranks)
             signature_info['trend'] = i
 
-    # pprint(analysis)
+    __prettywarn(analysis, verbose)
 
     return {'status_flags': status_flags,
             'base_versions': base_versions,
             'start_dates': start_date_by_channel,
-            'signatures': analysis}
+            'signatures': analysis,
+            'end_date': end_date}
 
 
-def update_status_flags(info, update=False):
+def generate_bug_report(sgn, info, status_flags_by_channel, base_versions, start_date_by_channel, end_date):
+    data = {}
+    if info['firefox']:
+        volumes = default_volumes.copy()
+        data = {}
+        for channel, volume in info['affected']:
+            data[status_flags_by_channel[channel]] = 'affected'
+            volumes[channel] = volume
+        for channel, volume in info['leftovers']:
+            volumes[channel] = volume
+
+        # We begin with the crash volume
+        comment = 'Crash volume for signature \'%s\':\n' % sgn
+        table = []
+        for chan, volume in sorted(volumes.items(), key=lambda k: channel_order[k[0]]):
+            version = base_versions[chan]
+            start_date = start_date_by_channel[chan]
+            plural = 'es' if volume != 1 else ''
+            table.append(['- %s' % chan,
+                          '(version %d):' % version,
+                          '%d crash%s from %s.' % (volume, plural, start_date)])
+        comment += __mk_volume_table(table, 'global')
+
+        # Make the table for the trend
+        table = []
+        empty = False
+        N = -1
+        for chan, trend in sorted(info['trend'].items(), key=lambda k: channel_order[k[0]]):
+            if len(trend) >= 1:
+                # we remove data for this week
+                del(trend[0])
+            if len(trend) >= 8:  # keep only the last seven weeks
+                trend = trend[:7]
+
+            if not trend:
+                empty = True
+                break
+
+            N = max(N, len(trend))
+            row = [str(n) for n in trend]
+            row.insert(0, '- %s' % chan)
+            table.append(row)
+
+        if not empty:  # we've trends
+            monday, sunday = utils.get_monday_sunday(utils.get_date_ymd(end_date))
+            comment += '\n\nCrash volume on the last weeks (Week N is from %s to %s):\n' % (monday.strftime('%m-%d'), sunday.strftime('%m-%d'))
+            headers = ['']
+            for w in range(1, N + 1):
+                headers.append('W. N-%d' % w)
+            comment += __mk_volume_table(table, 'byweek', headers=headers)
+
+        # Add affected platforms
+        platforms = info['platforms']
+        if platforms:
+            comment += '\n\nAffected platform'
+            if len(platforms) >= 2:
+                comment += 's'
+                platforms = sorted(platforms, key=lambda k: platform_order[k])
+            comment += ': ' + ', '.join(platforms)
+
+        ranks = info['rank']
+        if ranks:
+            # check if we've ranks
+            empty = True
+            for types in ranks.values():
+                for v in types.values():
+                    if v != -1:
+                        empty = False
+                        break
+
+            if not empty:
+                comment += '\n\nCrash rank on the last 7 days:\n'
+                headers = ['', 'Browser', 'Content', 'Plugin']
+                table = []
+
+                def fmt_rank(s):
+                    return None if s == -1 else '#' + str(s)
+
+                for chan, types in sorted(ranks.items(), key=lambda k: channel_order[k[0]]):
+                    table.append(['- %s' % chan,
+                                 fmt_rank(types['browser']),
+                                 fmt_rank(types['content']),
+                                 fmt_rank(types['plugin'])])
+                comment += __mk_volume_table(table, 'rank', headers=headers)
+
+        data['comment'] = {'body': comment}
+
+    return data
+
+
+def update_status_flags(info, update=False, verbose=False):
     status_flags_by_channel = info['status_flags']
     base_versions = info['base_versions']
-    channel_order = {'nightly': 0, 'aurora': 1, 'beta': 2, 'release': 3, 'esr': 4}
-    platform_order = {'Windows': 0, 'Mac OS X': 1, 'Linux': 2}
     start_date_by_channel = info['start_dates']
+    end_date = info['end_date']
 
     for c, d in start_date_by_channel.items():
         start_date_by_channel[c] = utils.get_date_str(d)
 
-    bugids = []
-    default_volumes = {c: 0 for c in channel_order.keys()}
+    bugs_to_update = {}
 
     for sgn, i in info['signatures'].items():
-        if i['firefox']:
-            volumes = default_volumes.copy()
-            data = {}
+        data = generate_bug_report(sgn, i, status_flags_by_channel, base_versions, start_date_by_channel, end_date)
+        if data:
             bugid = i['bugid']
-            bugids.append(str(bugid))
-            for channel, volume in i['affected']:
-                data[status_flags_by_channel[channel]] = 'affected'
-                volumes[channel] = volume
-            for channel, volume in i['leftovers']:
-                volumes[channel] = volume
-            if volumes:
-                comment = 'Crash volume for signature \'%s\':\n' % sgn
-                table = []
-                for chan, volume in sorted(volumes.items(), key=lambda k: channel_order[k[0]]):
-                    version = base_versions[chan]
-                    start_date = start_date_by_channel[chan]
-                    plural = 'es' if volume != 1 else ''
-                    table.append(['- %s' % chan,
-                                  '(version %d):' % version,
-                                  '%d crash%s from %s.' % (volume, plural, start_date)])
-                comment += __mk_volume_table(table, 'global')
+            bugs_to_update[bugid] = data
 
-                table = []
-                empty = False
-                N = -1
-                for chan, trend in sorted(i['trend'].items(), key=lambda k: channel_order[k[0]]):
-                    if len(trend) >= 1:
-                        # we remove data for this week
-                        del(trend[0])
-                    if len(trend) >= 8:  # keep only the last seven weeks
-                        trend = trend[:7]
-
-                    if not trend:
-                        empty = True
-                        break
-
-                    N = max(N, len(trend))
-                    row = [str(n) for n in trend]
-                    row.insert(0, '- %s' % chan)
-                    table.append(row)
-
-                if not empty:
-                    monday, sunday = utils.get_monday_sunday(utils.get_date_ymd('today'))
-                    comment += '\n\nCrash volume on the last weeks (Week N is from %s to %s):\n' % (monday.strftime('%m-%d'), sunday.strftime('%m-%d'))
-                    headers = ['']
-                    for w in range(1, N + 1):
-                        headers.append('W. N-%d' % w)
-                    comment += __mk_volume_table(table, 'byweek', headers=headers)
-
-                platforms = i['platforms']
-                if platforms:
-                    comment += '\n\nAffected platform'
-                    if len(platforms) >= 2:
-                        comment += 's'
-                        platforms = sorted(platforms, key=lambda k: platform_order[k])
-                    comment += ': ' + ', '.join(platforms)
-
-                ranks = i['rank']
-                if ranks:
-                    # check if we've ranks
-                    empty = True
-                    for types in ranks.values():
-                        for v in types.values():
-                            if v != -1:
-                                empty = False
-                                break
-
-                    comment += '\n\nCrash rank on the last 7 days:\n'
-                    headers = ['', 'Browser', 'Content', 'Plugin']
-                    # TODO: rajouter diese devant le rank
-                    table = []
-
-                    def fmt_rank(s):
-                        return None if s == -1 else '#' + str(s)
-
-                    for chan, types in sorted(ranks.items(), key=lambda k: channel_order[k[0]]):
-                        table.append(['- %s' % chan,
-                                      fmt_rank(types['browser']),
-                                      fmt_rank(types['content']),
-                                      fmt_rank(types['plugin'])])
-                    comment += __mk_volume_table(table, 'rank', headers=headers)
-
-                print(comment)
-                data['comment'] = {'body': comment}
-            if update:
-                Bugzilla([str(bugid)]).put(data)
-                pprint((bugid, data))
-            else:
-                pprint((bugid, data))
+    for bugid, data in bugs_to_update.items():
+        __warn('Bug %d: %s' % (bugid, str(data)), verbose)
+        __warn(data['comment']['body'], verbose)
+        if update:
+            Bugzilla([str(bugid)]).put(data)
 
     if update:
-        links = '\n'.join(Bugzilla.get_links(bugids))
-        print(links)
-
-
-def to_html(filename, info):
-    with open(filename, 'w') as Out:
-        Out.write('<html>\n<body>\n')
-        n = 1
-        for sgn, i in info['signatures'].items():
-            if i['firefox']:
-                soc_url = 'https://crash-stats.mozilla.com/signature/?signature=' + quote(sgn)
-                bugid = i['bugid']
-                bz_url = ' https://bugzil.la/' + str(bugid)
-                Out.write('<b>%s.</b> <a href=\'%s\'>%s</a>' % (n, soc_url, sgn))
-                n += 1
-                if i['resolved']:
-                    link_bug = ' <del><a style=\'color:red\' href=\'%s\'>%s</a></del> ' % (bz_url, str(bugid))
-                else:
-                    link_bug = ' <a href=\'%s\'>%s</a> ' % (bz_url, str(bugid))
-                Out.write(link_bug)
-                if i['bugs'] and len(i['bugs']) > 1:
-                    Out.write('&nbsp;(')
-                    bugs = i['bugs']
-                    for k in range(len(bugs)):
-                        if bugs[k] != bugid:
-                            Out.write('<a href=\'https://bugzil.la/%s\'>%s</a>' % (bugs[k], bugs[k]))
-                            if k != len(bugs) - 1:
-                                Out.write('&nbsp;')
-                    Out.write(')&nbsp;')
-                Out.write(', '.join(i['affected']) + '<br>\n')
-        Out.write('</body>\n</html>\n')
+        links = '\n'.join(Bugzilla.get_links(list(bugs_to_update.keys())))
+        __warn('Bug links: %s' % links, verbose)
 
 
 if __name__ == "__main__":
@@ -969,7 +966,6 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--product', action='store', default='Firefox', help='the product')
     parser.add_argument('-l', '--limit', action='store', default=1000, type=int, help='the max number of signatures to get')
     parser.add_argument('-m', '--max', action='store', default=-1, type=int, help='the max number of bugs to change')
-    parser.add_argument('-o', '--output', action='store', help='output file (html)')
     parser.add_argument('-s', '--start-date', dest='start_date', action='store', default='', help='Start date to use to search signatures')
     parser.add_argument('-u', '--update', action='store_true', help='update Bugzilla')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
@@ -986,10 +982,8 @@ if __name__ == "__main__":
     try:
         info = get(product=args.product, limit=args.limit, verbose=args.verbose, search_start_date=args.start_date, signatures=args.signatures, bug_ids=args.bug_ids, max_bugs=args.max)
 
-        if args.output:
-            to_html(args.output, info)
         if args.update:
-            update_status_flags(info, update=not args.dry_run)
+            update_status_flags(info, update=not args.dry_run, verbose=args.verbose)
     except:
         if args.verbose:
             raise
