@@ -35,7 +35,7 @@ def get_critical_errors():
 
     errors = [match.group(1) for match in matches if match is not None]
 
-    return [error for error in errors if error != ', ']
+    return set([error for error in errors if error != ', '])
 
 
 def analyze_gfx_critical_errors(signature='', product='Firefox', channel=['all'], versions=[], start_date=''):
