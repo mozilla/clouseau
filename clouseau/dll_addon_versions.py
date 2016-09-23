@@ -133,6 +133,7 @@ def get(signature, matching_mode, module, addon, product='Firefox', channel=['al
         'match': []
     }
     queries = []
+    print(str(len(uuids)) + ' reports will be analyzed.')
     for uuid in uuids:
         queries.append(Query(socorro.ProcessedCrash.URL, params={'crash_id': uuid}, handler=handler_pc, handlerdata=info))
 
