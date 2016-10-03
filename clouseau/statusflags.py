@@ -701,6 +701,15 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_
         channel.append('esr')
 
     start_date, min_date, versions_by_channel, start_date_by_channel, base_versions = get_versions_info(product)
+    nv = Bugzilla.get_nightly_version()
+
+    if nv != base_versions['nightly']:
+        __warn('Mismatch between nightly version from Bugzilla (%d) and Socorro (%d)' % (nv, base_versions['nightly']), verbose)
+        return None
+
+    if base_versions['aurora'] != nv - 1 or base_versions['beta'] != nv - 2 or base_versions['release'] != nv - 3:
+        __warn('All versions are not up to date', verbose)
+        return None
 
     __warn('Versions: %s' % versions_by_channel, verbose)
     __warn('Start dates: %s' % start_date_by_channel, verbose)
@@ -982,7 +991,7 @@ if __name__ == "__main__":
     try:
         info = get(product=args.product, limit=args.limit, verbose=args.verbose, search_start_date=args.start_date, signatures=args.signatures, bug_ids=args.bug_ids, max_bugs=args.max)
 
-        if args.update:
+        if info and args.update:
             update_status_flags(info, update=not args.dry_run, verbose=args.verbose)
     except:
         if args.verbose:

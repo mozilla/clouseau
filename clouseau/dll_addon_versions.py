@@ -104,8 +104,11 @@ def get(signature, matching_mode, module, addon, product='Firefox', channel=['al
                 filename = m['filename'].lower()
                 if filename in module:
                     versions = data['versions']
+                    debug_ids = data['debug_ids']
                     dll_version = m['version']
+                    debug_id = m['debug_id']
                     versions[filename][dll_version] += 1
+                    debug_ids[filename][debug_id] += 1
                     break
 
             # if addon_version and dll_version and (addon_version == dll_version):
@@ -121,8 +124,16 @@ def get(signature, matching_mode, module, addon, product='Firefox', channel=['al
                 if not in_bt:
                     data['not_in_bt'].append(json['uuid'])
 
-    info = {'versions': defaultdict(lambda: defaultdict(int)), 'limit': limit, 'not_in_bt': [], 'not_in_addon': [], 'match': []}
+    info = {
+        'versions': defaultdict(lambda: defaultdict(int)),
+        'debug_ids': defaultdict(lambda: defaultdict(int)),
+        'limit': limit,
+        'not_in_bt': [],
+        'not_in_addon': [],
+        'match': []
+    }
     queries = []
+    print(str(len(uuids)) + ' reports will be analyzed.')
     for uuid in uuids:
         queries.append(Query(socorro.ProcessedCrash.URL, params={'crash_id': uuid}, handler=handler_pc, handlerdata=info))
 
@@ -162,6 +173,12 @@ if __name__ == "__main__":
             print(' - ' + k)
             for v, c in vers.items():
                 print('   - ' + v + ': ' + str(c))
+
+        print('The following debug identifiers have been found:')
+        for k, debug_id in info['debug_ids'].items():
+            print(' - ' + k)
+            for d, c in debug_id.items():
+                print('   - ' + d + ': ' + str(c))
 
         print('')
 
