@@ -1,0 +1,18 @@
+Hi all,
+
+We've one or more spike in startup crashes.
+Here the results:
+
+{% for product, i1 in spikers_info.items() %}== {{ product }} ==
+{% for chan, i2 in i1.items() %}  {{ chan }}:
+{% for url, date, sgns in i2 %}   - Top 3 of startup crashers the {{ date }}:
+{% for sgn, count in sgns %}    * {{ sgn }}: {{ count }}
+{% endfor %}
+   {{ url }}
+
+{% endfor -%}
+{% endfor -%}
+{% endfor %}
+
+Sincerely,
+Release Management Bot
