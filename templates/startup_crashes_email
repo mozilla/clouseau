@@ -1,18 +1,35 @@
-Hi all,
-
-We've one or more spike in startup crashes.
-Here the results:
-
-{% for product, i1 in spikers_info.items() %}== {{ product }} ==
-{% for chan, i2 in i1.items() %}  {{ chan }}:
-{% for url, date, sgns in i2 %}   - Top 3 of startup crashers the {{ date }}:
-{% for sgn, count in sgns %}    * {{ sgn }}: {{ count }}
-{% endfor %}
-   {{ url }}
-
+<!doctype html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <title>Spikes</title>
+</head>
+<body>
+<p>Hi all,</p>
+<p>We've {{ spikes_number_word }} spike{{ 's' if spikes_number > 1 else '' }} in startup crashes.<br>
+<ul style="padding: 0">
+{% for product, i1 in interesting_sgns.items() %}<li>{{ product }}
+<ul>{% for chan, i2 in i1.items() %}
+<li>{{ chan }} (<b>{{ crash_data[product][chan] }}</b> crashes reported):<br>
+Most signifiant increases from {{ start_date }} to {{ end_date }} (<a href="{{ i2[0]}}">top startup crashers from Socorro</a>):
+<ul>
+{% for sgn, bugs, prev_count, count, percent in i2[1] %}<li>{{ sgn|e }}: <b>increased from {{ prev_count }} to {{ count }} (+{{ percent }}%)</b>.
+<ul>
+{% for bug_id, bug_link in bugs %}<li><a href="{{ bug_link }}">Bug {{ bug_id }}</a></li>
 {% endfor -%}
+</ul>
+</li>
 {% endfor -%}
-{% endfor %}
-
-Sincerely,
+</ul>
+</li>
+{% endfor -%}
+</ul>
+</li>
+{% endfor -%}
+</ul>
+</p>
+<p>Sincerely,<br>
 Release Management Bot
+</p>
+</body>
+</html>
