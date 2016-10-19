@@ -3,3 +3,4 @@ requests[security]>=2.7.0
 tabulate>=0.7.5
 jinja2>=2.8
 inflect>=0.2.5
+scipy>=0.18.0
