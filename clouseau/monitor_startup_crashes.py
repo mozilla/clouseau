@@ -18,6 +18,7 @@ from libmozdata.bugzilla import Bugzilla
 from . import statusflags
 import inflect
 
+
 delay_by_channel = {'release': 12,
                     'beta': 4,
                     'aurora': 9,
@@ -55,8 +56,7 @@ def convert(data):
                         del numbers['browser']
                         numbers['total'] = n
                 elif product == 'Firefox':
-                    numbers = {
-                        'browser': 0, 'content': 0, 'plugin': 0, 'total': 0}
+                    numbers = {'browser': 0, 'content': 0, 'plugin': 0, 'total': 0}
                 else:
                     numbers = {'total': 0}
                 dc[date] = numbers
@@ -75,8 +75,7 @@ def get_most_signifiant_increases(data):
                 for sgn, n in sgns.items():
                     if sgn in diffs:
                         if diffs[sgn][0] > n:
-                            diffs[sgn] = (diffs[sgn][0] - n, diffs[sgn][0], n, int(
-                                round(100. * float(diffs[sgn][0] - n) / float(n))))
+                            diffs[sgn] = (diffs[sgn][0] - n, diffs[sgn][0], n, int(round(100. * float(diffs[sgn][0] - n) / float(n))))
                         else:
                             del diffs[sgn]
                     else:
@@ -84,8 +83,7 @@ def get_most_signifiant_increases(data):
         # we've all the diffs for a product and a channel
         s = sorted(diffs.items(), key=lambda p: p[0])
         x = [float(n[0]) for _, n in s]
-        outliers = spikeanalysis.generalized_esd(
-            x, 3, alpha=0.01, method='mean')
+        outliers = spikeanalysis.generalized_esd(x, 3, alpha=0.01, method='mean')
         if outliers:
             interesting_sgns[p][c] = {s[i][0]: s[i][1] for i in outliers}
 
@@ -101,8 +99,7 @@ def get_bugs(data):
     statusflags.reduce_set_of_bugs(bugs_by_signature)
 
     for s, bugs in bugs_by_signature.items():
-        bugs_by_signature[s] = [(str(bug), Bugzilla.get_links(bug))
-                                for bug in bugs]
+        bugs_by_signature[s] = [(str(bug), Bugzilla.get_links(bug)) for bug in bugs]
 
     return bugs_by_signature
 
@@ -136,12 +133,12 @@ def monitor(emails=[], date='yesterday', path='', data=None, verbose=False, writ
                 else:
                     throttle = 10 if chan == 'release' else 1
                     total *= throttle
-                    d = {'browser': 0, 'plugin': 0,
-                         'content': 0, 'total': total}
+                    d = {'browser': 0, 'plugin': 0, 'content': 0, 'total': total}
                     for pt in info['facets']['process_type']:
                         term = pt['term']
                         count = pt['count']
-                        d[term] += count * throttle
+                        if term in d:
+                            d[term] += count * throttle
                     d['browser'] = total - (d['plugin'] + d['content'])
                     if chan in data:
                         data[chan][date] = d
@@ -156,16 +153,14 @@ def monitor(emails=[], date='yesterday', path='', data=None, verbose=False, writ
     for data_date in dates:
         data_date = utils.get_date_ymd(data_date)
         next_data_date = data_date + datetime.timedelta(days=1)
-        search_data_date = socorro.SuperSearch.get_search_date(
-            data_date, next_data_date)
+        search_data_date = socorro.SuperSearch.get_search_date(data_date, next_data_date)
         for product in products:
             versions = socorro.ProductVersions.get_all_versions(product)
             all_versions[product] = []
             for chan in channels:
                 info = versions[chan]
                 last_ver_major = max(info.keys())
-                _start_date = data_date - \
-                    datetime.timedelta(weeks=delay_by_channel[chan])
+                _start_date = data_date - datetime.timedelta(weeks=delay_by_channel[chan])
                 for major in range(last_ver_major, last_ver_major - 4, -1):
                     for v, d in info[major]['versions'].items():
                         if not v.endswith('b') and _start_date <= d <= data_date:
@@ -189,8 +184,7 @@ def monitor(emails=[], date='yesterday', path='', data=None, verbose=False, writ
             json.dump(data, Out, sort_keys=True)
 
     new_start_date = start_date - datetime.timedelta(days=1)
-    new_search_date = socorro.SuperSearch.get_search_date(
-        new_start_date, end_date)
+    new_search_date = socorro.SuperSearch.get_search_date(new_start_date, end_date)
 
     def handler_ss_spikers(json, data):
         if not json['errors']:
@@ -209,14 +203,12 @@ def monitor(emails=[], date='yesterday', path='', data=None, verbose=False, writ
     searches = []
     for product, i1 in data.items():
         for chan, i2 in i1.items():
-            _data = [float(i[1]['total'])
-                     for i in sorted(i2.items(), key=lambda p: utils.get_date_ymd(p[0])) if utils.get_date_ymd(i[0]) <= start_date]
+            _data = [float(i[1]['total']) for i in sorted(i2.items(), key=lambda p: utils.get_date_ymd(p[0])) if utils.get_date_ymd(i[0]) <= start_date]
             # print(product, chan)
-            issp = spikeanalysis.is_spiking_ma(
-                _data, alpha=2.5, win=7, method='mean', plot=False) == 'up'
+            issp = spikeanalysis.is_spiking_ma(_data, alpha=2.5, win=7, method='mean', plot=False) == 'up'
+            # spikeanalysis.get_spikes_ma(_data, alpha=2.5, win=7, method='mean', plot=True)
             if issp:
-                # spikeanalysis.is_spiking_ma(_data, alpha=2.5, win=7,
-                # method='mean', plot=True)
+                # spikeanalysis.is_spiking_ma(_data, alpha=2.5, win=7, method='mean', plot=True)
                 searches.append(socorro.SuperSearch(params={'product': product,
                                                             'date': new_search_date,
                                                             'release_channel': chan,
@@ -266,8 +258,7 @@ def monitor(emails=[], date='yesterday', path='', data=None, verbose=False, writ
                                                     'version': versions_pc[p][c],
                                                     'uptime': '<60'})
                 sgns_chan = interesting_sgns[p]
-                sgns_stats = [(s, bugs_by_signature[s], t[2], t[1], t[3])
-                              for s, t in sorted(sgns_chan[c].items(), key=lambda p: p[1][0], reverse=True)]
+                sgns_stats = [(s, bugs_by_signature[s], t[2], t[1], t[3]) for s, t in sorted(sgns_chan[c].items(), key=lambda p: p[1][0], reverse=True)]
                 sgns_chan[c] = (url, sgns_stats)
 
         for s in searches:
@@ -276,9 +267,8 @@ def monitor(emails=[], date='yesterday', path='', data=None, verbose=False, writ
         env = Environment(loader=FileSystemLoader('templates'))
         env.filters['inflect'] = inflect
         template = env.get_template('startup_crashes_email')
-        body = template.render(spikes_number=spikes_number, spikes_number_word=inflect.engine().number_to_words(spikes_number), crash_data=crash_data,
-                               start_date=utils.get_date_str(new_start_date), end_date=utils.get_date_str(start_date), interesting_sgns=interesting_sgns)
-        title = 'Spikes in %s' % ', '.join(affected_chans)
+        body = template.render(spikes_number=spikes_number, spikes_number_word=inflect.engine().number_to_words(spikes_number), crash_data=crash_data, start_date=utils.get_date_str(new_start_date), end_date=utils.get_date_str(start_date), interesting_sgns=interesting_sgns)
+        title = 'Spikes in startup crashes in %s' % ', '.join(affected_chans)
 
         if emails:
             gmail.send(emails, title, body, html=True)
@@ -293,17 +283,11 @@ def monitor(emails=[], date='yesterday', path='', data=None, verbose=False, writ
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Update status flags in Bugzilla')
-    parser.add_argument('-p', '--path', action='store',
-                        default='', help='the path of the crashes history')
-    parser.add_argument('-e', '--email', dest='emails',
-                        action='store', nargs='+', default=[], help='emails')
-    parser.add_argument('-d', '--date', dest='date',
-                        action='store', default='yesterday', help='date')
-    parser.add_argument(
-        '-v', '--verbose', action='store_true', help='verbose mode')
+    parser = argparse.ArgumentParser(description='Update status flags in Bugzilla')
+    parser.add_argument('-p', '--path', action='store', default='', help='the path of the crashes history')
+    parser.add_argument('-e', '--email', dest='emails', action='store', nargs='+', default=[], help='emails')
+    parser.add_argument('-d', '--date', dest='date', action='store', default='yesterday', help='date')
+    parser.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
     args = parser.parse_args()
 
-    monitor(path=os.path.expanduser(os.path.expandvars(args.path)),
-            emails=args.emails, date=args.date, verbose=args.verbose)
+    monitor(path=os.path.expanduser(os.path.expandvars(args.path)), emails=args.emails, date=args.date, verbose=args.verbose, writejson=True)
