@@ -2,3 +2,4 @@ libmozdata>=0.1.13
 requests[security]>=2.7.0
 tabulate>=0.7.5
 jinja2>=2.8
+inflect>=0.2.5
