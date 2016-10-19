@@ -14,7 +14,7 @@ class MonitorStartupCrashesTest(MockTestCase):
     mock_urls = [
         socorro.Socorro.CRASH_STATS_URL,
         bugzilla.Bugzilla.URL,
-        'https://crash-analysis.mozilla.com/rkaiser'
+        'https://crash-analysis.mozilla.com'
     ]
 
     @responses.activate

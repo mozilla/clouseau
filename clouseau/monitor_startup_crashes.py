@@ -16,20 +16,17 @@ import libmozdata.spikeanalysis as spikeanalysis
 import libmozdata.gmail as gmail
 from libmozdata.bugzilla import Bugzilla
 from . import statusflags
+from . import config
 import inflect
 
 
-delay_by_channel = {'release': 12,
-                    'beta': 4,
-                    'aurora': 9,
-                    'nightly': 9}
-products = ['Firefox', 'FennecAndroid']
-channels = ['release', 'beta', 'aurora', 'nightly']
+products = config.get('MonitorStartupCrashes', 'products', ['Firefox', 'FennecAndroid'], type=list)
+channels = config.get('MonitorStartupCrashes', 'channels', ['release', 'beta', 'aurora', 'nightly'], type=list)
 
 
 def get_crashanalysis_data():
     data = {}
-    url = 'https://crash-analysis.mozilla.com/rkaiser'
+    url = 'https://crash-analysis.mozilla.com/release-mgmt'
     for product in products:
         for chan in channels:
             jsonfile = '%s-%s-crashes-categories.json' % (product, chan)
@@ -137,7 +134,7 @@ def monitor(emails=[], date='yesterday', path='', data=None, verbose=False, writ
                     for pt in info['facets']['process_type']:
                         term = pt['term']
                         count = pt['count']
-                        if term in d:
+                        if term in d:  # term can be 'gpu' (very rare)
                             d[term] += count * throttle
                     d['browser'] = total - (d['plugin'] + d['content'])
                     if chan in data:
@@ -149,6 +146,11 @@ def monitor(emails=[], date='yesterday', path='', data=None, verbose=False, writ
         dates = ['yesterday', 'today']
     else:
         dates = [date]
+
+    delay_by_channel = {'release': config.get('MonitorStartupCrashes', 'delay_release', 12, type=int),
+                        'beta': config.get('MonitorStartupCrashes', 'delay_beta', 4, type=int),
+                        'aurora': config.get('MonitorStartupCrashes', 'delay_aurora', 9, type=int),
+                        'nightly': config.get('MonitorStartupCrashes', 'delay_nightly', 9, type=int)}
 
     for data_date in dates:
         data_date = utils.get_date_ymd(data_date)
@@ -283,7 +285,7 @@ def monitor(emails=[], date='yesterday', path='', data=None, verbose=False, writ
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Update status flags in Bugzilla')
+    parser = argparse.ArgumentParser(description='Monitor spikes in startup crashes')
     parser.add_argument('-p', '--path', action='store', default='', help='the path of the crashes history')
     parser.add_argument('-e', '--email', dest='emails', action='store', nargs='+', default=[], help='emails')
     parser.add_argument('-d', '--date', dest='date', action='store', default='yesterday', help='date')
