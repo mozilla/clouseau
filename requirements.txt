@@ -1,4 +1,4 @@
-libmozdata>=0.1.13
+libmozdata>=0.1.14
 requests[security]>=2.7.0
 tabulate>=0.7.5
 jinja2>=2.8
