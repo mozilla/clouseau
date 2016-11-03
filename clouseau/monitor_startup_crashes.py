@@ -77,12 +77,12 @@ def get_most_signifiant_increases(data):
                             del diffs[sgn]
                     else:
                         diffs[sgn] = (n, n, 0, infinity)
-        # we've all the diffs for a product and a channel
-        s = sorted(diffs.items(), key=lambda p: p[0])
-        x = [float(n[0]) for _, n in s]
-        outliers = spikeanalysis.generalized_esd(x, 3, alpha=0.01, method='mean')
-        if outliers:
-            interesting_sgns[p][c] = {s[i][0]: s[i][1] for i in outliers}
+            # we've all the diffs for a product and a channel
+            s = sorted(diffs.items(), key=lambda p: p[0])
+            x = [float(n[0]) for _, n in s]
+            outliers = spikeanalysis.generalized_esd(x, 3, alpha=0.01, method='mean')
+            if outliers:
+                interesting_sgns[p][c] = {s[i][0]: s[i][1] for i in outliers}
 
     return interesting_sgns
 
