@@ -1,0 +1,8 @@
+[MonitorStartupCrashes]
+delay_release = 12
+delay_beta = 4
+delay_aurora = 9
+delay_nightly = 9
+
+products = Firefox, FennecAndroid
+channels = release, beta, aurora, nightly
