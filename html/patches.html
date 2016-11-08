@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <title>Backtraces and patches</title>
+    <script src="patches.js"></script>
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+  </head>
+  <body>
+    <div class="panel panel-default">
+      <div class="panel-body">
+        <span class="dropdown">
+          <button class="btn btn-default dropdown-toggle" type="button" id="products" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+            Products
+            <span class="caret"></span>
+          </button>
+          <ul class="dropdown-menu" aria-labelledby="products" id="productsbutton"></ul>
+        </span>
+        <span class="dropdown">
+          <button class="btn btn-default dropdown-toggle" type="button" id="dates" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+            Dates
+            <span class="caret"></span>
+          </button>
+          <ul class="dropdown-menu" aria-labelledby="dates" id="datesbutton"></ul>
+        </span>
+        <span class="dropdown">
+          <button class="btn btn-default dropdown-toggle" type="button" id="signatures" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+            Signatures
+            <span class="caret"></span>
+          </button>
+          <ul class="dropdown-menu" aria-labelledby="signatures" id="sgnsbutton"></ul>
+        </span>
+      </div>
+    </div>
+    <div class="container col-md-12" id="main"></div>
+  </body>
+  <footer>
+    <script type="text/javascript">
+      init_patches();
+    </script>
+</html>
