@@ -873,7 +873,7 @@ def generate_bug_report(sgn, info, status_flags_by_channel, base_versions, start
             plural = 'es' if volume != 1 else ''
             table.append(['- %s' % chan,
                           '(version %d):' % version,
-                          '%d crash%s from %s.' % (volume, plural, start_date)])
+                          '%d crash%s from %s.' % (volume, plural, utils.get_date_str(start_date))])
         comment += __mk_volume_table(table, 'global')
 
         # Make the table for the trend
