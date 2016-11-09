@@ -75,14 +75,12 @@ def get(signature, matching_mode, module, addon, product='Firefox', channel=['al
 
     if verbose:
         count = [0]
-        print('Total uuids: %d' % len(uuids))
 
     def handler_pc(json, data):
         if verbose:
             count[0] += 1
-            c = count[0]
-            if c % 100 == 0:
-                print('Treated reports: %d' % c)
+            if count[0] % 100 == 0:
+                print('Treated reports: %d' % count[0])
 
         addon_version = ''
         if addon:
@@ -109,7 +107,6 @@ def get(signature, matching_mode, module, addon, product='Firefox', channel=['al
                     debug_id = m['debug_id']
                     versions[filename][dll_version] += 1
                     debug_ids[filename][debug_id] += 1
-                    break
 
             # if addon_version and dll_version and (addon_version == dll_version):
             #     data['match'].append(json['uuid'])
