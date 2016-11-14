@@ -805,7 +805,7 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_
 
     __warn('Analysis: Ok', verbose)
 
-    positions_result, positions = get_crash_positions(-1, product, versions_by_channel, channel, verbose=verbose)
+    positions_result, positions = get_crash_positions(-1, product, versions_by_channel, channel, search_date=search_date, verbose=verbose)
 
     # Now get the number of crashes for each signature
     trends = get_stats_for_past_weeks(product, channel, start_date_by_channel, versions_by_channel, analysis, search_start_date, end_date, check_for_fx=check_for_fx)
