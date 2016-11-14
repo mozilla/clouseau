@@ -34,5 +34,6 @@ class MonitorStartupCrashesTest(MockTestCase):
         mail = msc.monitor(date='2016-09-01', data=data, verbose=False)
         self.assertIsNone(mail)
 
+
 if __name__ == '__main__':
     unittest.main()

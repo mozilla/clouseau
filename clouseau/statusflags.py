@@ -23,6 +23,7 @@ channel_order = {'nightly': 0, 'aurora': 1, 'beta': 2, 'release': 3, 'esr': 4}
 platform_order = {'Windows': 0, 'Mac OS X': 1, 'Linux': 2}
 default_volumes = {c: 0 for c in channel_order.keys()}
 
+
 args_pattern = re.compile('\([^\)]*\)')
 template_pattern = re.compile('<[^>]*>')
 dll_pattern = re.compile('([^@]+)@0x[a-fA-F0-9]+')
@@ -552,7 +553,7 @@ def __prettywarn(obj, verbose=True):
 def get_versions_info(product, date='today', base_versions=libmozdata.versions.get(base=True)):
     if base_versions is None:
         base_versions = libmozdata.versions.get(base=True)
-    versions_by_channel = socorro.ProductVersions.get_info_from_major(base_versions, product=product)
+    versions_by_channel = socorro.ProductVersions.get_info_from_major(base_versions, product=product, active=None)
     channel_by_version = {}
     vbc = {}
     start_date_by_channel = {}

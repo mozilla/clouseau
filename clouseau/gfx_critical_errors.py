@@ -89,6 +89,7 @@ def analyze_gfx_critical_errors(signature='', product='Firefox', channel=['all']
 
     return count
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Update status flags in Bugzilla')
     parser.add_argument('-p', '--product', action='store', default='Firefox', help='the product')
