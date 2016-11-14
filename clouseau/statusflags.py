@@ -23,6 +23,7 @@ channel_order = {'nightly': 0, 'aurora': 1, 'beta': 2, 'release': 3, 'esr': 4}
 platform_order = {'Windows': 0, 'Mac OS X': 1, 'Linux': 2}
 default_volumes = {c: 0 for c in channel_order.keys()}
 
+
 args_pattern = re.compile('\([^\)]*\)')
 template_pattern = re.compile('<[^>]*>')
 dll_pattern = re.compile('([^@]+)@0x[a-fA-F0-9]+')
