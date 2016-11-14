@@ -552,7 +552,7 @@ def __prettywarn(obj, verbose=True):
 def get_versions_info(product, date='today', base_versions=libmozdata.versions.get(base=True)):
     if base_versions is None:
         base_versions = libmozdata.versions.get(base=True)
-    versions_by_channel = socorro.ProductVersions.get_info_from_major(base_versions, product=product)
+    versions_by_channel = socorro.ProductVersions.get_info_from_major(base_versions, product=product, active=None)
     channel_by_version = {}
     vbc = {}
     start_date_by_channel = {}

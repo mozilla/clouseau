@@ -105,7 +105,7 @@ class StatusFlagTest(MockTestCase):
         # bug 730283 is a dup of 719114 for signature js::GCMarker::processMarkStackTop
         self.assertEqual(set(bugs_by_signature[signatures[0]]), {792226, 789892, 719114, 1257309, 941491, 745334, 772441, 952381})
 
-        self.assertEqual(set(bugs_by_signature[signatures[1]]), {1127554, 1153515, 683271, 1205771, 1034254, 1089682, 1115929, 1048619, 1060268, 1174324, 1066036, 1260730, 1081790, 1209673, 1057869, 1215181, 1045588, 1221974, 1059563, 1053934, 1224815, 1028720, 1205110, 1252090, 1177086})
+        self.assertEqual(set(bugs_by_signature[signatures[1]]), {1127554, 1153515, 683271, 1205771, 1034254, 1089682, 1115929, 1048619, 1060268, 1174324, 1066036, 1260730, 1081790, 1209673, 1057869, 1215181, 1045588, 1221974, 1059563, 1053934, 1224815, 1028720, 1205110, 1252090, 1177086, 1310134})
 
     @responses.activate
     def test_get_stats_for_past_weeks(self):
@@ -123,7 +123,7 @@ class StatusFlagTest(MockTestCase):
         self.assertEqual(trends['nightly'], {0: 8, 1: 15, 2: 13, 3: 13, 4: 29, 5: 52, 6: 4})
         self.assertEqual(trends['beta'], {0: 57, 1: 122, 2: 177, 3: 128, 4: 131, 5: 127, 6: 40})
         self.assertEqual(trends['aurora'], {0: 15, 1: 0, 2: 0, 3: 1, 4: 1, 5: 1, 6: 0})
-        self.assertEqual(trends['esr'], {0: 0, 1: 0, 2: 1, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 1, 12: 0, 13: 0, 14: 0, 15: 0})
+        self.assertEqual(trends['esr'], {0: 0, 1: 0, 2: 1, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 1, 12: 0, 13: 0, 14: 0, 15: 0, 16: 0, 17: 0, 18: 0, 19: 0, 20: 0, 21: 0, 22: 0, 23: 0, 24: 0, 25: 0, 26: 0})
 
     @responses.activate
     def test_get_partial(self):
@@ -162,7 +162,7 @@ class StatusFlagTest(MockTestCase):
 
         self.assertEqual(info['start_dates']['aurora'], utils.get_date_ymd('2016-08-01'))
         self.assertEqual(info['start_dates']['beta'], utils.get_date_ymd('2016-08-02'))
-        self.assertEqual(info['start_dates']['esr'], utils.get_date_ymd('2016-06-01'))
+        self.assertEqual(info['start_dates']['esr'], utils.get_date_ymd('2016-03-15'))
         self.assertEqual(info['start_dates']['nightly'], utils.get_date_ymd('2016-08-01'))
         self.assertEqual(info['start_dates']['release'], utils.get_date_ymd('2016-07-25'))
 
@@ -170,9 +170,9 @@ class StatusFlagTest(MockTestCase):
 
         isgn = info['signatures']['IPCError-browser | ShutDownKill']
 
-        self.assertEqual(set(isgn['leftovers']), {('aurora', 114076), ('nightly', 65106), ('beta', 33208), ('release', 897), ('esr', 35)})
+        self.assertEqual(set(isgn['leftovers']), {('aurora', 114076), ('nightly', 65106), ('beta', 33208), ('release', 897), ('esr', 34)})
         self.assertEqual(isgn['bugid'], 1216774)
-        self.assertEqual(set(isgn['bugs']), {1238657, 1151237, 1216774, 1260551, 1177484, 1173134, 1168272, 1132053, 1133597, 1167902, 1200671, 1213092, 1200646, 1213096, 1223594, 1200685, 1279293, 1206729, 1177425, 1219672, 1205467, 1240542, 1266275, 1290280, 1259125, 1164155, 1150846})
+        self.assertEqual(set(isgn['bugs']), {1238657, 1151237, 1216774, 1260551, 1177484, 1173134, 1168272, 1132053, 1133597, 1167902, 1200671, 1213092, 1200646, 1213096, 1223594, 1200685, 1279293, 1206729, 1177425, 1219672, 1205467, 1240542, 1266275, 1290280, 1259125, 1164155, 1150846, 1311297, 1316867, 1289405, 1311869})
         self.assertEqual(set(isgn['platforms']), {'Windows', 'Mac OS X'})
         self.assertFalse(isgn['private'])
 
@@ -189,13 +189,13 @@ class StatusFlagTest(MockTestCase):
 
         self.assertEqual(isgn['trend']['aurora'], [5776, 18706, 21015, 20699, 22058, 20100, 5721])
         self.assertEqual(isgn['trend']['beta'], [206, 784, 817, 987, 1419, 18147, 10848])
-        self.assertEqual(isgn['trend']['esr'], [4, 5, 2, 5, 2, 2, 3, 2, 0, 0, 5, 2, 1, 1, 2, 0])
+        self.assertEqual(isgn['trend']['esr'], [4, 5, 2, 5, 2, 2, 3, 2, 0, 0, 5, 2, 3, 1, 3, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
         self.assertEqual(isgn['trend']['nightly'], [3280, 10192, 10261, 10294, 10631, 11974, 8471])
         self.assertEqual(isgn['trend']['release'], [101, 232, 169, 134, 117, 92, 49, 1])
 
         data = statusflags.generate_bug_report('IPCError-browser | ShutDownKill', isgn, info['status_flags'], info['base_versions'], info['start_dates'], end_date='2016-09-14', check_for_fx=False)
 
-        self.assertEqual(data['comment']['body'], 'Crash volume for signature \'IPCError-browser | ShutDownKill\':\n - nightly (version 51): 65106 crashes from 2016-08-01.\n - aurora  (version 50): 114076 crashes from 2016-08-01.\n - beta    (version 49): 33208 crashes from 2016-08-02.\n - release (version 48): 897 crashes from 2016-07-25.\n - esr     (version 45): 35 crashes from 2016-06-01.\n\nCrash volume on the last weeks (Week N is from 09-12 to 09-18):\n            W. N-1  W. N-2  W. N-3  W. N-4  W. N-5  W. N-6  W. N-7\n - nightly   10192   10261   10294   10631   11974    8471\n - aurora    18706   21015   20699   22058   20100    5721\n - beta        784     817     987    1419   18147   10848\n - release     232     169     134     117      92      49       1\n - esr           5       2       5       2       2       3       2\n\nAffected platforms: Windows, Mac OS X\n\nCrash rank on the last 7 days:\n           Browser   Content   Plugin\n - nightly           #1\n - aurora            #1\n - beta              #1\n - release           #10\n - esr               #1')
+        self.assertEqual(data['comment']['body'], 'Crash volume for signature \'IPCError-browser | ShutDownKill\':\n - nightly (version 51): 65106 crashes from 2016-08-01.\n - aurora  (version 50): 114076 crashes from 2016-08-01.\n - beta    (version 49): 33208 crashes from 2016-08-02.\n - release (version 48): 897 crashes from 2016-07-25.\n - esr     (version 45): 34 crashes from 2016-03-15.\n\nCrash volume on the last weeks (Week N is from 09-12 to 09-18):\n            W. N-1  W. N-2  W. N-3  W. N-4  W. N-5  W. N-6  W. N-7\n - nightly   10192   10261   10294   10631   11974    8471\n - aurora    18706   21015   20699   22058   20100    5721\n - beta        784     817     987    1419   18147   10848\n - release     232     169     134     117      92      49       1\n - esr           5       2       5       2       2       3       2\n\nAffected platforms: Windows, Mac OS X\n\nCrash rank on the last 7 days:\n           Browser   Content   Plugin\n - nightly           #1\n - aurora            #1\n - beta              #1\n - release           #10\n - esr               #1')
 
 
 if __name__ == '__main__':
