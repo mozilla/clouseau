@@ -8,7 +8,7 @@ import datetime
 import os
 import functools
 import requests
-from collections import defaultdict
+from collections import (defaultdict, OrderedDict)
 from jinja2 import Environment, FileSystemLoader
 import libmozdata.socorro as socorro
 import libmozdata.utils as utils
@@ -96,7 +96,7 @@ def get_bugs(data):
     statusflags.reduce_set_of_bugs(bugs_by_signature)
 
     for s, bugs in bugs_by_signature.items():
-        bugs_by_signature[s] = [(str(bug), Bugzilla.get_links(bug)) for bug in bugs]
+        bugs_by_signature[s] = [(str(bug), Bugzilla.get_links(bug)) for bug in sorted(bugs, key=lambda k: int(k))]
 
     return bugs_by_signature
 
@@ -269,6 +269,13 @@ def monitor(emails=[], date='yesterday', path='', data=None, verbose=False, writ
         env = Environment(loader=FileSystemLoader('templates'))
         env.filters['inflect'] = inflect
         template = env.get_template('startup_crashes_email')
+        _is = OrderedDict()
+        for product in sorted(interesting_sgns.keys()):
+            _is[product] = OrderedDict()
+            for chan in sorted(interesting_sgns[product].keys()):
+                _is[product][chan] = interesting_sgns[product][chan]
+        interesting_sgns = _is
+
         body = template.render(spikes_number=spikes_number, spikes_number_word=inflect.engine().number_to_words(spikes_number), crash_data=crash_data, start_date=utils.get_date_str(new_start_date), end_date=utils.get_date_str(start_date), interesting_sgns=interesting_sgns)
         title = 'Spikes in startup crashes in %s' % ', '.join(affected_chans)
 
