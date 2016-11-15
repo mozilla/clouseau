@@ -23,6 +23,7 @@ channel_order = {'nightly': 0, 'aurora': 1, 'beta': 2, 'release': 3, 'esr': 4}
 platform_order = {'Windows': 0, 'Mac OS X': 1, 'Linux': 2}
 default_volumes = {c: 0 for c in channel_order.keys()}
 
+
 args_pattern = re.compile('\([^\)]*\)')
 template_pattern = re.compile('<[^>]*>')
 dll_pattern = re.compile('([^@]+)@0x[a-fA-F0-9]+')
@@ -476,6 +477,7 @@ def get_signatures(limit, product, versions, channel, search_date, signatures, b
                                     '_facets_size': max(limit, 100),
                                     '_results_number': 0},
                             handler=handler_ss, handlerdata=__signatures, timeout=300).wait()
+
     return __signatures
 
 
@@ -548,13 +550,14 @@ def __prettywarn(obj, verbose=True):
         pprint(obj)
 
 
-def get_versions_info(product):
-    base_versions = libmozdata.versions.get(base=True)
-    versions_by_channel = socorro.ProductVersions.get_info_from_major(base_versions, product=product)
+def get_versions_info(product, date='today', base_versions=libmozdata.versions.get(base=True)):
+    if base_versions is None:
+        base_versions = libmozdata.versions.get(base=True)
+    versions_by_channel = socorro.ProductVersions.get_info_from_major(base_versions, product=product, active=None)
     channel_by_version = {}
     vbc = {}
     start_date_by_channel = {}
-    start_date = utils.get_date_ymd('today')
+    start_date = utils.get_date_ymd(date)
     min_date = start_date
     for chan, versions in versions_by_channel.items():
         start_date_by_channel[chan] = utils.get_date_ymd('tomorrow')
@@ -615,7 +618,7 @@ def reduce_set_of_bugs(bugs_by_signature):
     return bugs, bugs_count
 
 
-def get_stats_for_past_weeks(product, channel, start_date_by_channel, versions_by_channel, analysis, search_start_date, end_date):
+def get_stats_for_past_weeks(product, channel, start_date_by_channel, versions_by_channel, analysis, search_start_date, end_date, check_for_fx=True):
     queries = []
     trends = {}
     signatures_by_chan = {}
@@ -635,7 +638,7 @@ def get_stats_for_past_weeks(product, channel, start_date_by_channel, versions_b
         default_trend_by_chan[chan] = {i: 0 for i in range(past_w + 1)}
 
     for signature, info in analysis.items():
-        if info['firefox']:
+        if not check_for_fx or info['firefox']:
             data = {}
             trends[signature] = data
             # for chan, volume in info['affected']:
@@ -680,7 +683,7 @@ def get_stats_for_past_weeks(product, channel, start_date_by_channel, versions_b
     return trends
 
 
-def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_date=None, signatures=[], bug_ids=[], max_bugs=-1):
+def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_date=None, signatures=[], bug_ids=[], max_bugs=-1, base_versions=None, check_for_fx=True, check_bz_version=True):
     """Get crashes info
 
     Args:
@@ -700,14 +703,14 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_
     if product == 'Firefox':
         channel.append('esr')
 
-    start_date, min_date, versions_by_channel, start_date_by_channel, base_versions = get_versions_info(product)
+    start_date, min_date, versions_by_channel, start_date_by_channel, base_versions = get_versions_info(product, base_versions=base_versions)
     nv = Bugzilla.get_nightly_version()
 
-    if nv != base_versions['nightly']:
+    if check_bz_version and nv != base_versions['nightly']:
         __warn('Mismatch between nightly version from Bugzilla (%d) and Socorro (%d)' % (nv, base_versions['nightly']), verbose)
         return None
 
-    if base_versions['aurora'] != nv - 1 or base_versions['beta'] != nv - 2 or base_versions['release'] != nv - 3:
+    if check_bz_version and (base_versions['aurora'] != nv - 1 or base_versions['beta'] != nv - 2 or base_versions['release'] != nv - 3):
         __warn('All versions are not up to date', verbose)
         return None
 
@@ -776,7 +779,6 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_
                 crashes_to_reopen.append(s)
         else:
             bug_to_touch = None
-
         info['selected_bug'] = bug_to_touch
         info['bugs'] = v
         info['no_change'] = no_change
@@ -795,7 +797,7 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_
         __analysis = {}
         count = 0
         for signature, info in analysis.items():
-            if info['firefox']:
+            if not check_for_fx or info['firefox']:
                 __analysis[signature] = info
                 count += 1
                 if count == max_bugs:
@@ -804,10 +806,10 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_
 
     __warn('Analysis: Ok', verbose)
 
-    positions_result, positions = get_crash_positions(-1, product, versions_by_channel, channel, verbose=verbose)
+    positions_result, positions = get_crash_positions(-1, product, versions_by_channel, channel, search_date=search_date, verbose=verbose)
 
     # Now get the number of crashes for each signature
-    trends = get_stats_for_past_weeks(product, channel, start_date_by_channel, versions_by_channel, analysis, search_start_date, end_date)
+    trends = get_stats_for_past_weeks(product, channel, start_date_by_channel, versions_by_channel, analysis, search_start_date, end_date, check_for_fx=check_for_fx)
 
     noisy = set()
     # check for the noise
@@ -852,9 +854,9 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_
             'end_date': end_date}
 
 
-def generate_bug_report(sgn, info, status_flags_by_channel, base_versions, start_date_by_channel, end_date):
+def generate_bug_report(sgn, info, status_flags_by_channel, base_versions, start_date_by_channel, end_date, check_for_fx=True):
     data = {}
-    if info['firefox']:
+    if not check_for_fx or info['firefox']:
         volumes = default_volumes.copy()
         data = {}
         for channel, volume in info['affected']:
@@ -872,7 +874,7 @@ def generate_bug_report(sgn, info, status_flags_by_channel, base_versions, start
             plural = 'es' if volume != 1 else ''
             table.append(['- %s' % chan,
                           '(version %d):' % version,
-                          '%d crash%s from %s.' % (volume, plural, start_date)])
+                          '%d crash%s from %s.' % (volume, plural, utils.get_date_str(start_date))])
         comment += __mk_volume_table(table, 'global')
 
         # Make the table for the trend

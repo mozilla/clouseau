@@ -105,6 +105,7 @@ def tojson(filename, channel, versions=None, product='Firefox', start_date=None,
         data = get(channel, versions, product, start_date, end_date, duration, platforms)
         json.dump(reformat_data(data), Out)
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Crash Stats')
     parser.add_argument('-f', '--format', action='store', default='csv', help='format')

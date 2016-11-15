@@ -11,7 +11,7 @@
 {% for product, i1 in interesting_sgns.items() %}<li>{{ product }}
 <ul>{% for chan, i2 in i1.items() %}
 <li>{{ chan }} (<b>{{ crash_data[product][chan] }}</b> crashes reported):<br>
-Most signifiant increases from {{ start_date }} to {{ end_date }} (<a href="{{ i2[0]}}">top startup crashers from Socorro</a>):
+Most significant increases from {{ start_date }} to {{ end_date }} (<a href="{{ i2[0]}}">top startup crashers from Socorro</a>):
 <ul>
 {% for sgn, bugs, prev_count, count, percent in i2[1] %}<li>{{ sgn|e }}: <b>increased from {{ prev_count }} to {{ count }} (+{{ percent }}%)</b>.
 <ul>
