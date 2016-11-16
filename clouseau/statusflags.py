@@ -762,7 +762,7 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_
             patched_bugs.append(bugid)
 
     if patched_bugs:
-        patch_info = dataanalysis.analyze_bugs(patched_bugs, min_date=min_date)
+        patch_info = dataanalysis.analyze_bugs(patched_bugs, min_date=min_date, base_versions=base_versions)
     else:
         patch_info = {}
 

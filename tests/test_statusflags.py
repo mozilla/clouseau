@@ -130,10 +130,11 @@ class StatusFlagTest(MockTestCase):
         channel = ['release', 'beta', 'aurora', 'nightly', 'esr']
         signature = 'js::GCMarker::processMarkStackTop'
         bugids = socorro.Bugs.get_bugs([signature])
+        base_versions = {'nightly': 51, 'aurora': 50, 'beta': 49, 'release': 48, 'esr': 45}
 
         self.assertEqual(set(bugids[signature]), {792226, 789892, 719114, 730283, 1257309, 941491, 745334, 772441, 952381})
 
-        start_date, min_date, versions_by_channel, start_date_by_channel, base_versions = statusflags.get_versions_info('Firefox')
+        start_date, min_date, versions_by_channel, start_date_by_channel, base_versions = statusflags.get_versions_info('Firefox', base_versions=base_versions)
         search_date = statusflags.get_search_date('', start_date, '2016-09-14')
         sgninfo = statusflags.get_signatures(100, 'Firefox', versions_by_channel, channel, search_date, [signature], [], False)
         status_flags = Bugzilla.get_status_flags(base_versions=base_versions)
