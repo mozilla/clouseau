@@ -17,6 +17,7 @@ import libmozdata.versions
 import libmozdata.dataanalysis as dataanalysis
 from libmozdata.connection import (Connection, Query)
 import libmozdata.gmail
+from . import config
 
 
 channel_order = {'nightly': 0, 'aurora': 1, 'beta': 2, 'release': 3, 'esr': 4}
@@ -398,6 +399,24 @@ def analyze(signatures, status_flags):
     return result
 
 
+def get_ignored_signatures(sgns=''):
+    if not sgns:
+        sgns = config.get('StatusFlags', 'ignored', None)
+    ignored_signatures = set()
+    if sgns:
+        pat = re.compile('\'[ \t]*,[ \t]*')
+        sgns = pat.split(sgns)
+        for k in range(len(sgns)):
+            s = sgns[k]
+            s = s.strip(' \t')
+            i = 1 if s.startswith('\'') else 0
+            f = len(s) - 1 if k == len(sgns) - 1 and s.endswith('\'') else len(s)
+            s = s[i:f]
+            if s:
+                ignored_signatures.add(s)
+    return ignored_signatures
+
+
 def get_signatures(limit, product, versions, channel, search_date, signatures, bug_ids, verbose):
     if limit <= 0:
         count = []
@@ -417,16 +436,20 @@ def get_signatures(limit, product, versions, channel, search_date, signatures, b
     known_platforms = {'Windows NT', 'Mac OS X', 'Linux'}
     known_wtf_platforms = {'0x00000000', ''}
 
+    ignored_signatures = get_ignored_signatures()
+
     def handler_ss(json, data):
         n = 0
         for bucket in json['facets']['signature']:
+            signature = bucket['term']
+            if signature in ignored_signatures:
+                continue
             n += 1
             if n > limit:
                 break
 
             l1 = []
             l2 = []
-            signature = bucket['term']
             data[signature] = {'affected_channels': l1,
                                'platforms': l2,
                                'selected_bug': None,
