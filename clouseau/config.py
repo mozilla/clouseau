@@ -18,6 +18,13 @@ class ClouseauConfigIni(config.ConfigIni):
 __config = ClouseauConfigIni()
 
 
+def set_config(conf):
+    if not isinstance(conf, config.Config):
+        raise TypeError('Argument must have type config.Config')
+    global __config
+    __config = conf
+
+
 def get(section, option, default=None, type=str):
     global __config
     return __config.get(section, option, default=default, type=type)

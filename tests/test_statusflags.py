@@ -10,6 +10,8 @@ import libmozdata.utils as utils
 import responses
 from tests.auto_mock import MockTestCase
 from clouseau import statusflags
+from clouseau import config
+import libmozdata.config
 
 
 class StatusFlagTest(MockTestCase):
@@ -18,6 +20,16 @@ class StatusFlagTest(MockTestCase):
         socorro.Socorro.CRASH_STATS_URL,
         Mercurial.HG_URL
     ]
+
+    def test_get_ignored_signatures(self):
+        self.assertEqual(statusflags.get_ignored_signatures("'a','b','c'"), {'a', 'b', 'c'})
+        self.assertEqual(statusflags.get_ignored_signatures("'a' ,'b','c'"), {'a', 'b', 'c'})
+        self.assertEqual(statusflags.get_ignored_signatures("'a', 'b', 'c'"), {'a', 'b', 'c'})
+        self.assertEqual(statusflags.get_ignored_signatures(" 'a','b', 'c'"), {'a', 'b', 'c'})
+        self.assertEqual(statusflags.get_ignored_signatures(" 'a',   'b' ,'c' "), {'a', 'b', 'c'})
+        self.assertEqual(statusflags.get_ignored_signatures(" 'a','b'c'', 'd'"), {'a', 'b\'c\'', 'd'})
+        self.assertEqual(statusflags.get_ignored_signatures(" 'a'  "), {'a'})
+        self.assertEqual(statusflags.get_ignored_signatures("      "), set())
 
     @responses.activate
     def test_get_bugs_info(self):
@@ -152,6 +164,12 @@ class StatusFlagTest(MockTestCase):
 
     @responses.activate
     def test_get(self):
+        class MyConf(libmozdata.config.Config):
+            def get(self, section, option, default=None, type=str):
+                if section == 'StatusFlags' and option == 'ignored':
+                    return '\'OOM | small\', \'EMPTY: no crashing thread identified; ERROR_NO_MINIDUMP_HEADER\', \'F1398665248_____________________________\''
+        config.set_config(MyConf())
+
         base_versions = {'nightly': 51, 'aurora': 50, 'beta': 49, 'release': 48, 'esr': 45}
         info = statusflags.get('Firefox', 2, end_date='2016-09-14', base_versions=base_versions, check_for_fx=False, check_bz_version=False, verbose=False)
 

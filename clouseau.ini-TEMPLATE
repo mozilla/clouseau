@@ -1,3 +1,6 @@
+[StatusFlags]
+ignored = 'foo::bar', 'bar::foo'
+
 [MonitorStartupCrashes]
 delay_release = 12
 delay_beta = 4
