@@ -21,6 +21,16 @@ class StatusFlagTest(MockTestCase):
         Mercurial.HG_URL
     ]
 
+    def test_get_dict_from_list(self):
+        l = ['a', '1', 'b', '2', 'c', '3']
+        d = {'a': 1, 'b': 2, 'c': 3}
+        self.assertEqual(statusflags.get_dict_from_list(l), d)
+
+    def test_get_noisy(self):
+        trends = {'foo': {'release': {i: i for i in range(10)}}}
+        analysis = {'foo': {'affected': [('release', 0)]}}
+        self.assertEqual(statusflags.get_noisy(trends, analysis), {'foo'})
+
     def test_get_ignored_signatures(self):
         self.assertEqual(statusflags.get_ignored_signatures("'a','b','c'"), {'a', 'b', 'c'})
         self.assertEqual(statusflags.get_ignored_signatures("'a' ,'b','c'"), {'a', 'b', 'c'})
@@ -168,10 +178,12 @@ class StatusFlagTest(MockTestCase):
             def get(self, section, option, default=None, type=str):
                 if section == 'StatusFlags' and option == 'ignored':
                     return '\'OOM | small\', \'EMPTY: no crashing thread identified; ERROR_NO_MINIDUMP_HEADER\', \'F1398665248_____________________________\''
+                else:
+                    return default
         config.set_config(MyConf())
 
         base_versions = {'nightly': 51, 'aurora': 50, 'beta': 49, 'release': 48, 'esr': 45}
-        info = statusflags.get('Firefox', 2, end_date='2016-09-14', base_versions=base_versions, check_for_fx=False, check_bz_version=False, verbose=False)
+        info = statusflags.get('Firefox', 2, end_date='2016-09-14', base_versions=base_versions, check_for_fx=False, check_bz_version=False, check_noisy=False, verbose=False)
 
         self.assertEqual(info['base_versions']['aurora'], 50)
         self.assertEqual(info['base_versions']['beta'], 49)
