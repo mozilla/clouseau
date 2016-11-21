@@ -30,6 +30,9 @@ class StatusFlagTest(MockTestCase):
         trends = {'foo': {'release': {i: i for i in range(10)}}}
         analysis = {'foo': {'affected': [('release', 0)]}}
         self.assertEqual(statusflags.get_noisy(trends, analysis), {'foo'})
+        trends = {'bar': {'nightly': {i: i for i in range(3, 15)}}}
+        analysis = {'bar': {'affected': [('nightly', 0)]}}
+        self.assertEqual(statusflags.get_noisy(trends, analysis), set())
 
     def test_get_ignored_signatures(self):
         self.assertEqual(statusflags.get_ignored_signatures("'a','b','c'"), {'a', 'b', 'c'})
