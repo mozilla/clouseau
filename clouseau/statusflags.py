@@ -706,7 +706,34 @@ def get_stats_for_past_weeks(product, channel, start_date_by_channel, versions_b
     return trends
 
 
-def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_date=None, signatures=[], bug_ids=[], max_bugs=-1, base_versions=None, check_for_fx=True, check_bz_version=True):
+def get_dict_from_list(l):
+    return {l[i]: int(l[i + 1]) for i in range(0, len(l), 2)}
+
+
+def get_noisy(trends, analysis, thresholds=None):
+    if not thresholds:
+        default = ['nightly', '7', 'aurora', '10', 'beta', '10', 'release', '10', 'esr', '50']
+        thresholds = get_dict_from_list(config.get('StatusFlags', 'thresholds', default=default, type=list))
+
+    noisy = set()
+    for sgn, data in trends.items():
+        isnoisy = True
+        affected = [c for c, _ in analysis[sgn]['affected']]
+        for chan in affected:
+            trend = data[chan]
+            v = trend.values()
+            m, e = utils.mean_stddev(v)
+            if m + e > thresholds[chan]:
+                isnoisy = False
+                break
+
+        if isnoisy:
+            noisy.add(sgn)
+
+    return noisy
+
+
+def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_date=None, signatures=[], bug_ids=[], max_bugs=-1, base_versions=None, check_for_fx=True, check_bz_version=True, check_noisy=True):
     """Get crashes info
 
     Args:
@@ -734,7 +761,7 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_
         return None
 
     if check_bz_version and (base_versions['aurora'] != nv - 1 or base_versions['beta'] != nv - 2 or base_versions['release'] != nv - 3):
-        __warn('All versions are not up to date', verbose)
+        __warn('All versions are not up to date (Bugzilla nightly version is %d): %s' % (nv, base_versions), verbose)
         return None
 
     __warn('Versions: %s' % versions_by_channel, verbose)
@@ -834,26 +861,15 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_
     # Now get the number of crashes for each signature
     trends = get_stats_for_past_weeks(product, channel, start_date_by_channel, versions_by_channel, analysis, search_start_date, end_date, check_for_fx=check_for_fx)
 
-    noisy = set()
-    # check for the noise
-    for sgn, data in trends.items():
-        isnoisy = True
-        for chan, trend in data.items():
-            if chan != 'esr':
-                v = trend.values()
-                m, e = utils.mean_stddev(v)
-                if m + e > 7:
-                    isnoisy = False
-                    break
-
-        if isnoisy:
-            noisy.add(sgn)
+    if check_noisy:
+        noisy = get_noisy(trends, analysis)
+        __warn('Noisy signatures: %s' % [analysis[s] for s in noisy], verbose)
+    else:
+        noisy = set()
 
     __warn('Collected trends: Ok\n', verbose)
 
     positions_result.wait()
-
-    __warn('Noisy signatures: %s' % [analysis[s] for s in noisy], verbose)
 
     # replace dictionary containing trends by a list
     empty_ranks = {'browser': -1, 'content': -1, 'plugin': -1}
