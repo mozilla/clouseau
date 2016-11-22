@@ -5,7 +5,7 @@
 from flask import Flask, jsonify
 from flask_restful import Resource, Api, reqparse
 from . import guiltypatches
-from libmozdata import config
+
 
 app = Flask(__name__)
 api = Api(app)
@@ -19,15 +19,13 @@ class Patches(Resource):
         parser.add_argument('product', type=str, default='')
         parser.add_argument('date', type=str, default='')
         args = parser.parse_args()
-        output_dir = config.get('GuiltyPatches', 'output', None)
+        output_dir = guiltypatches.get_output_dir()
 
         if output_dir:
             if not (args.channel and args.product and args.date):
                 return jsonify(guiltypatches.getdates(output_dir))
             else:
                 return jsonify(guiltypatches.get(args.channel, args.product, args.date, output_dir))
-        else:
-            return jsonify({})
 
 
 api.add_resource(Patches, '/patches', endpoint='patches')

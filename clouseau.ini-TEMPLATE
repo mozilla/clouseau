@@ -9,3 +9,7 @@ delay_nightly = 9
 
 products = Firefox, FennecAndroid
 channels = release, beta, aurora, nightly
+
+[GuiltyPatches]
+output = /home/calixte/toto
+lockname = $TMPDIR/clouseau_lock

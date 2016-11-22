@@ -1,3 +1,8 @@
+/*jslint browser:true */
+/*global $, jQuery*/
+
+"use strict";
+
 var dates = [];
 var maindata = null;
 var products = ["Firefox", "FennecAndroid"];
@@ -5,29 +10,31 @@ var product = products[0];
 var channel = "nightly";
 var curdate = null;
 
-function init_patches() {
-    $.get("http://localhost/clouseau/rest/patches", populate_dates, 'json');
-    populate_product();
+
+function make_title() {
+    document.title  = "Backtraces and patches in " + product + " - " + curdate;
 }
 
-function update(data) {
-    maindata = data;
-    first = populate_signatures(data);
-    make_tables(first, data[first]);
+function get_total(bts) {
+    var total = 0;
+    for (var bt of bts) {
+        total += bt.count;
+    }
+    return total;
 }
 
 function make_patch(patches) {
-    var td = $("<td></td>");
-    if (patches.length == 0) {
-        return td;
+    if (patches.length === 0) {
+        return $("<td></td>");
     }
-    var ul = $("<ul></ul>");
-    for (var patch of patches) {
-        var node = patch.node;
-        var link = "http://hg.mozilla.org/mozilla-central/rev?node=" + node;
-        var partial_node = node.substring(0, 13); 
-        var date = patch.pushdate;
-        var li = $("<li><a href='" + link + "'>" + partial_node + "</a>&nbsp;at&nbsp;" + date + "</li>");
+    var td = $("<td></td>"),
+        ul = $("<ul></ul>");
+    for (let patch of patches) {
+        let node = patch.node,
+            link = "http://hg.mozilla.org/mozilla-central/rev?node=" + node,
+            partial_node = node.substring(0, 13),
+            date = patch.pushdate,
+            li = $("<li><a href='" + link + "'>" + partial_node + "</a>&nbsp;at&nbsp;" + date + "</li>");
         ul.append(li);
     }
     td.attr("class", "success");
@@ -36,27 +43,30 @@ function make_patch(patches) {
 }
 
 function make_table(bt, total) {
-    var count = bt.count;
-    var uuid = bt.uuids[0];
-    var div1 = $("<div></div>");
-    var div2 = $("<div class='well'></div>");
-    var div3 = $("<div class='container'></div>");
-    var p1 = $("<p>This backtrace represents " + Math.round(100. * count / total) + "% of the different backtraces (total is " + total + ").</p>");
-    var link = "https://crash-stats.mozilla.com/report/index/" + uuid;
-    var p2 = $("<p>The report <a href='" + link + "'>" + uuid + "</a> has it.</p>");
+    var count = bt.count,
+        uuid = bt.uuids[0],
+        div1 = $("<div></div>"),
+        div2 = $("<div class='well'></div>"),
+        div3 = $("<div class='container'></div>"),
+        p1 = $("<p>This backtrace represents " + Math.round(100.0 * count / total) + "% of the different backtraces (total is " + total + ").</p>"),
+        link = "https://crash-stats.mozilla.com/report/index/" + uuid,
+        p2 = $("<p>The report <a href='" + link + "'>" + uuid + "</a> has it.</p>"),
+        table = $("<table class='table table-bordered container'></table>"),
+        thead = $("<thead><tr><th>Functions</th><th>Files</th><th>Patches</th></tr></thead>"),
+        tbody = $("<tbody></tbody>");
     div2.append(p1);
     div2.append(p2);
     div1.append(div2);
-    var table = $("<table class='table table-bordered container'></table>");
-    var thead = $("<thead><tr><th>Functions</th><th>Files</th><th>Patches</th></tr></thead>");
-    var tbody = $("<tbody></tbody>");
-    for (var bti of bt.bt) {
-        var tr = $("<tr></tr>");
-        var func = bti[0];
-        var file = bti[1].filename;
-        var patches = bti[1].patches;
+    for (let bti of bt.bt) {
+        let tr = $("<tr></tr>"),
+            func = bti[0],
+            file = bti[1].filename,
+            node = bti[1].node,
+            line = bti[1].line,
+            patches = bti[1].patches,
+            hgurl = "https://hg.mozilla.org/mozilla-central/annotate/" + node + "/" + file + "#l" + line;
         tr.append($("<td>" + func + "</td>"));
-        tr.append($("<td>" + file + "</td>"));
+        tr.append($("<td><a href='" + hgurl + "'>" + file + "</a></td>"));
         tr.append(make_patch(patches));
         tbody.append(tr);
     }
@@ -67,97 +77,107 @@ function make_table(bt, total) {
     return div1;
 }
 
-function get_total(bts) {
-    var total = 0;
-    for (var bt of bts) {
-        total += bt.uuids.length;
-    }
-    return total;
-}
-
-function make_title() {
-    document.title  = "Backtraces and patches in " + product + " - " + curdate;
-}
-
 function make_tables(sgn, bts) {
-    var panel = $("<div class='panel panel-default'></div>");
-    var heading = $("<div class='panel-heading'>Backtraces for signature &lsquo;<span id='signature'></span>&rsquo;</div>");
+    var panel = $("<div class='panel panel-default'></div>"),
+        heading = $("<div class='panel-heading'>Backtraces for signature &lsquo;<span id='signature'></span>&rsquo;</div>"),
+        main = $("#main");
     heading.children("#signature").text(sgn);
     panel.append(heading);
-    bts = bts.sort(function (bt1, bt2) { return bt2.uuids.length - bt1.uuids.length; });
-    for (var bt of bts) {
-        var div = $("<div></div>");
-        var table = make_table(bt, get_total(bts));
+    bts = bts.sort(function (bt1, bt2) { return bt2.count - bt1.count; });
+    for (let bt of bts) {
+        let div = $("<div></div>"),
+            table = make_table(bt, get_total(bts));
         div.append(table);
         panel.append(div);
     }
-    var main = $("#main");
     main.empty();
     main.append(panel);
 }
 
-function dates_cb(date) {
-    curdate = date;
-    $.get("http://localhost/clouseau/rest/patches",
-          {"channel": channel, "product": product, "date": date},
+function show_signature(sgn) {
+    $("#signaturestitle").text(sgn);
+    make_tables(sgn, maindata[sgn]);
+}
+
+function populate_signatures(data) {
+    $("#sgnsbutton").empty();
+    var sgns = [],
+        cb = function (e) { show_signature(e.target.text); return true; };
+    for (let sgn in data) {
+        sgns.push([sgn, get_total(data[sgn])]);
+    }
+    sgns = sgns.sort(function (a, b) { var d = b[1] - a[1]; if (d != 0) { return d; } return a[0].localeCompare(b[0]); });
+    for (let sgn of sgns) {
+        let li = $("<li></li>"),
+            a = $("<a href=\'#\'></a>");
+        sgn = sgn[0];
+        a.text(sgn);
+        a.click(cb);
+        li.append(a);
+        $("#sgnsbutton").append(li);
+    }
+    return sgns.length != 0 ? sgns[0][0] : null;
+}
+
+function update(data) {
+    maindata = data;
+    var first = populate_signatures(data);
+    if (first != null) {
+        $("#signaturestitle").text(first);
+        make_tables(first, data[first]);
+    } else {
+        $("#signaturestitle").text("No signatures !");
+        $("#main").empty();
+    }
+}
+
+function products_cb(prod) {
+    product = prod;
+    $.get("rest/patches",
+          {"channel": channel, "product": product, "date": curdate},
           update, 'json');
     make_title();
+    $("#productstitle").text(prod);
+}
+
+function populate_product() {
+    $("#productstitle").text(products[0]);
+    $("#productsbutton").empty();
+    for (let prod of products) {
+        let li = $("<li></li>"),
+            a = $("<a href=\'#\'></a>");
+        a.text(prod);
+        a.click(function (e) { products_cb(e.target.text); return true; });
+        li.append(a);
+        $("#productsbutton").append(li);
+    }
 }
 
 function populate_dates(data) {
-    dates = data.dates;
+    var cb = function (e) { dates_cb(e.target.text); return true; };
+    dates = data.dates
     $("#datesbutton").empty();
-    for (var date of dates) {
-        var li = $("<li></li>");
-        var a = $("<a href=\'#\'></a>");
+    for (let date of dates) {
+        let li = $("<li></li>"),
+            a = $("<a href=\'#\'></a>");
         a.text(date);
-        a.click(function(e){dates_cb(e.target.text); return true;});
+        a.click(cb);
         li.append(a);
         $("#datesbutton").append(li);
     }
     dates_cb(dates[0]);
 }
 
-function show_signature(sgn) {
-    make_tables(sgn, maindata[sgn]);
+function init_patches() {
+    $.get("rest/patches", populate_dates, 'json');
+    populate_product();
 }
 
-function populate_signatures(data) {
-    $("#sgnsbutton").empty();
-    sgns = []
-    for (var sgn in data) {
-        sgns.push([sgn, get_total(data[sgn])]);
-    }
-    sgns = sgns.sort(function (a, b) { var d = b[1] - a[1]; if (d != 0) return d; else return a[0].localeCompare(b[0]); });
-    for (var sgn of sgns) {
-        sgn = sgn[0];
-        var li = $("<li></li>");
-        var a = $("<a href=\'#\'></a>");
-        a.text(sgn);
-        a.click(function(e){show_signature(e.target.text); return true;});
-        li.append(a);
-        $("#sgnsbutton").append(li);
-    }
-
-    return sgns[0][0];
-}
-
-function products_cb(prod) {
-    product = prod;
-    $.get("http://localhost/clouseau/rest/patches",
-          {"channel": channel, "product": product, "date": curdate},
+function dates_cb(date) {
+    curdate = date;
+    $.get("rest/patches",
+          {"channel": channel, "product": product, "date": date},
           update, 'json');
     make_title();
-}
-
-function populate_product() {
-    $("#productsbutton").empty();
-    for (var prod of products) {
-        var li = $("<li></li>");
-        var a = $("<a href=\'#\'></a>");
-        a.text(prod);
-        a.click(function(e){products_cb(e.target.text); return true;});
-        li.append(a);
-        $("#productsbutton").append(li);
-    }
+    $("#datestitle").text(date);
 }
