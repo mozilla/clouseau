@@ -18,6 +18,7 @@ from collections import defaultdict
 from libmozdata.FileStats import FileStats
 from libmozdata import socorro
 from libmozdata.connection import (Connection, Query)
+from libmozdata.hgmozilla import Mercurial
 from . import config
 
 
@@ -416,8 +417,14 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--product', action='store', nargs='+', default=['Firefox', 'FennecAndroid'], help='the product, by default Firefox')
     parser.add_argument('-t', '--threshold', action='store', type=int, default=1, help='the threshold')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
+    parser.add_argument('-l', '--localhost', action='store_true', help='to use Mercurial http://localhost:8000')
 
     args = parser.parse_args()
+
+    if args.localhost:
+        # we bypass config option
+        Mercurial.HG_URL = 'http://localhost:8000'
+        Mercurial.remote = False
 
     for product in args.product:
         for date in args.date:
