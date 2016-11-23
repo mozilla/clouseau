@@ -7,7 +7,6 @@ import fasteners
 import tempfile
 import logging
 from datetime import (datetime, timedelta)
-from libmozdata import utils
 import re
 import copy
 import pytz
@@ -17,6 +16,7 @@ import json
 from collections import defaultdict
 from libmozdata.FileStats import FileStats
 from libmozdata import socorro
+from libmozdata import utils
 from libmozdata.connection import (Connection, Query)
 from libmozdata.hgmozilla import Mercurial
 from . import config
@@ -365,7 +365,7 @@ def generate(channel='nightly', product='Firefox', date='today', max_days=3, thr
     put_cache(channel, product, date, output_dir, cache, results)
 
 
-def getdates(output_dir):
+def getdates(output_dir=''):
     if not output_dir:
         output_dir = get_output_dir()
 
@@ -376,7 +376,14 @@ def getdates(output_dir):
             m = pat.match(f)
             if m:
                 dates.append(m.group(1))
-    return {'dates': sorted(dates, reverse=True)}
+    return dates
+
+
+def getinfos():
+    dates = sorted(getdates(), reverse=True, key=lambda d: utils.get_date_ymd(d))
+    products = ['Firefox', 'FennecAndroid']
+    channels = ['nightly']
+    return {'dates': dates, 'products': products, 'channels': channels}
 
 
 def check_args(channel, product, date):
@@ -397,7 +404,7 @@ def check_args(channel, product, date):
     return channel, product, date
 
 
-def get(channel, product, date, output_dir):
+def get(channel, product, date, output_dir=''):
     channel, product, date = check_args(channel, product, date)
     if not output_dir:
         output_dir = get_output_dir()

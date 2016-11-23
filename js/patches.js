@@ -3,13 +3,10 @@
 
 "use strict";
 
-var dates = [];
 var maindata = null;
-var products = ["Firefox", "FennecAndroid"];
-var product = products[0];
-var channel = "nightly";
-var curdate = null;
-
+var product = "";
+var curchan = "";
+var curdate = "";
 
 function make_title() {
     document.title  = "Backtraces and patches in " + product + " - " + curdate;
@@ -131,31 +128,30 @@ function update(data) {
     }
 }
 
-function products_cb(prod) {
-    product = prod;
-    $.get("rest/patches",
-          {"channel": channel, "product": product, "date": curdate},
-          update, 'json');
-    make_title();
-    $("#productstitle").text(prod);
+function dp_cb(d, p) {
+    var loc = window.location;
+    var url = loc.protocol + loc.pathname + '?date=' + d + '&product=' + p;
+    window.location.href = url;
 }
 
-function populate_product() {
-    $("#productstitle").text(products[0]);
+function populate_products(data) {
+    var cb = function (e) { dp_cb(curdate, e.target.text); return true; };
+    $("#productstitle").text(product);
     $("#productsbutton").empty();
-    for (let prod of products) {
+    for (let prod of data.products) {
         let li = $("<li></li>"),
             a = $("<a href=\'#\'></a>");
         a.text(prod);
-        a.click(function (e) { products_cb(e.target.text); return true; });
+        a.click(cb);
         li.append(a);
         $("#productsbutton").append(li);
     }
 }
 
 function populate_dates(data) {
-    var cb = function (e) { dates_cb(e.target.text); return true; };
-    dates = data.dates
+    var cb = function (e) { dp_cb(e.target.text, product); return true; },
+        dates = data.dates;
+    curdate = curdate == "" ? dates[0] : curdate;
     $("#datesbutton").empty();
     for (let date of dates) {
         let li = $("<li></li>"),
@@ -165,19 +161,18 @@ function populate_dates(data) {
         li.append(a);
         $("#datesbutton").append(li);
     }
-    dates_cb(dates[0]);
 }
 
-function init_patches() {
-    $.get("rest/patches", populate_dates, 'json');
-    populate_product();
-}
-
-function dates_cb(date) {
+function init_patches(prod, chan, date) {
+    product = prod;
     curdate = date;
-    $.get("rest/patches",
-          {"channel": channel, "product": product, "date": date},
-          update, 'json');
+    curchan = chan;
+    populate_products(infos);
+    populate_dates(infos);
     make_title();
-    $("#datestitle").text(date);
+    $("#datestitle").text(curdate);
+    $.get("rest/patches",
+          {"channel": curchan, "product": product, "date": curdate},
+          update, "json");
+
 }
