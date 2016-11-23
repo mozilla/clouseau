@@ -40,11 +40,11 @@
       </div>
     </div>
     <div class="container col-md-12" id="main"></div>
+    <footer>
+      <script type="text/javascript">
+        var infos = {{ infos|tojson}};
+        init_patches("{{ product }}", "{{ channel }}", "{{ date }}");
+      </script>
+    </footer>
   </body>
-  <footer>
-    <script type="text/javascript">
-      var infos = {{ infos|tojson}};
-      init_patches("{{ product }}", "{{ channel }}", "{{ date }}");
-    </script>
-  </footer>
 </html>
