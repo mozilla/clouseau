@@ -43,6 +43,7 @@
   </body>
   <footer>
     <script type="text/javascript">
-      init_patches();
+      var infos = {{ infos|tojson}};
+      init_patches("{{ product }}", "{{ channel }}", "{{ date }}");
     </script>
 </html>
