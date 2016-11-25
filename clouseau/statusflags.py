@@ -824,6 +824,9 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_
 
     if not end_date:
         end_date = utils.get_date('today')
+        six_months_ago = utils.get_date_ymd('today') - relativedelta(month=6)
+        if start_date <= six_months_ago:
+            start_date = six_months_ago
 
     search_date = get_search_date(search_start_date, start_date, end_date)
 
