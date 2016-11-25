@@ -45,6 +45,20 @@ class StatusFlagTest(MockTestCase):
         self.assertEqual(statusflags.get_ignored_signatures("      "), set())
 
     @responses.activate
+    def test_get_jsbugmon_regression(self):
+        bugs = {'1236541', '1236530', '1236522', '1183448', '1166993'}
+
+        def comment_handler(bug, bugid, data):
+            for comment in bug['comments']:
+                channel, major = statusflags.get_jsbugmon_regression(comment['raw_text'], product='Firefox')
+                if major != -1:
+                    data[bugid] = (channel, major)
+
+        data = {}
+        Bugzilla(bugs, commenthandler=comment_handler, commentdata=data).get_data().wait()
+        self.assertEqual(data, {'1236522': ('nightly', 46), '1166993': ('nightly', 41), '1183448': ('nightly', 41), '1236541': ('nightly', 46), '1236530': ('nightly', 46)})
+
+    @responses.activate
     def test_get_bugs_info(self):
         status_flags = Bugzilla.get_status_flags()
         bugs = ['701227', '701232']
@@ -110,16 +124,19 @@ class StatusFlagTest(MockTestCase):
         self.assertEqual(s['hang | ntdll.dll@0x6e1bc'], {'affected_channels': [('release', 171)],
                                                          'bugs': None,
                                                          'platforms': ['Windows'],
-                                                         'selected_bug': None})
+                                                         'selected_bug': None,
+                                                         'jsbugmon': 0})
         self.assertEqual(s['RtlpLowFragHeapFree | RtlFreeHeap | HeapFree | operator delete'], {'affected_channels': [('release', 153)],
                                                                                                'bugs': None,
                                                                                                'platforms': ['Windows'],
-                                                                                               'selected_bug': None})
+                                                                                               'selected_bug': None,
+                                                                                               'jsbugmon': 0})
         s = statusflags.get_signatures(100, 'Firefox', {'release': ['48.0', '48.0.1', '48.0.2']}, ['release'], ['>=2016-09-09', '<2016-09-10'], [], ['792226'], False)
         self.assertEqual(s['js::GCMarker::processMarkStackTop'], {'affected_channels': [('release', 1009)],
                                                                   'bugs': None,
                                                                   'platforms': ['Windows', 'Mac OS X'],
-                                                                  'selected_bug': None})
+                                                                  'selected_bug': None,
+                                                                  'jsbugmon': 0})
 
     @responses.activate
     def test_reduce_set_of_bugs(self):
