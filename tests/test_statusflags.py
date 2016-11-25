@@ -110,13 +110,13 @@ class StatusFlagTest(MockTestCase):
 
     @responses.activate
     def test_get_crash_positions(self):
-        def getnumbers(b, c, p):
-            return {'browser': b, 'content': c, 'plugin': p}
+        def getnumbers(b, c, p, g):
+            return {'browser': b, 'content': c, 'plugin': p, 'gpu': g}
 
         search, data = statusflags.get_crash_positions(100, 'Firefox', {'release': ['48.0', '48.0.1', '48.0.2']}, ['release'], search_date=['>=2016-09-09', '<2016-09-10'])
         search.wait()
-        self.assertEqual(data['release']['hang | ntdll.dll@0x6e1bc'], getnumbers(-1, -1, 6))
-        self.assertEqual(data['release']['RtlpLowFragHeapFree | RtlFreeHeap | HeapFree | operator delete'], getnumbers(53, 36, -1))
+        self.assertEqual(data['release']['hang | ntdll.dll@0x6e1bc'], getnumbers(-1, -1, 6, -1))
+        self.assertEqual(data['release']['RtlpLowFragHeapFree | RtlFreeHeap | HeapFree | operator delete'], getnumbers(53, 36, -1, -1))
 
     @responses.activate
     def test_get_signatures(self):
@@ -227,14 +227,14 @@ class StatusFlagTest(MockTestCase):
         self.assertEqual(set(isgn['platforms']), {'Windows', 'Mac OS X'})
         self.assertFalse(isgn['private'])
 
-        def getnumbers(b, c, p):
-            return {'browser': b, 'content': c, 'plugin': p}
+        def getnumbers(b, c, p, g):
+            return {'browser': b, 'content': c, 'plugin': p, 'gpu': g}
 
-        self.assertEqual(isgn['rank']['aurora'], getnumbers(-1, 1, -1))
-        self.assertEqual(isgn['rank']['beta'], getnumbers(-1, 1, -1))
-        self.assertEqual(isgn['rank']['esr'], getnumbers(-1, 1, -1))
-        self.assertEqual(isgn['rank']['nightly'], getnumbers(-1, 1, -1))
-        self.assertEqual(isgn['rank']['release'], getnumbers(-1, 10, -1))
+        self.assertEqual(isgn['rank']['aurora'], getnumbers(-1, 1, -1, -1))
+        self.assertEqual(isgn['rank']['beta'], getnumbers(-1, 1, -1, -1))
+        self.assertEqual(isgn['rank']['esr'], getnumbers(-1, 1, -1, -1))
+        self.assertEqual(isgn['rank']['nightly'], getnumbers(-1, 1, -1, -1))
+        self.assertEqual(isgn['rank']['release'], getnumbers(-1, 10, -1, -1))
 
         self.assertTrue(isgn['resolved'])
 

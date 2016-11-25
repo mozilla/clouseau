@@ -570,6 +570,7 @@ def get_crash_positions(limit, product, versions, channel, search_date='', end_d
             signature = sgn['term']
             content = 0
             plugin = 0
+            gpu = 0
             for pt in sgn['facets']['process_type']:
                 N = pt['count']
                 ty = pt['term']
@@ -577,20 +578,23 @@ def get_crash_positions(limit, product, versions, channel, search_date='', end_d
                     content += N
                 elif ty == 'plugin':
                     plugin += N
+                elif ty == 'gpu':
+                    gpu += N
                 else:
                     __warn('Unknown process type: %s' % ty)
-            browser = total - content - plugin
-            signatures[signature] = {'browser': browser, 'content': content, 'plugin': plugin}
+            browser = total - content - plugin - gpu
+            signatures[signature] = {'browser': browser, 'content': content, 'plugin': plugin, 'gpu': gpu}
 
         # now we sort the data according to the crash volume
-        types = ['browser', 'content', 'plugin']
+        types = ['browser', 'content', 'plugin', 'gpu']
         rank = [sorted(signatures.items(), key=lambda t: (-t[1][typ], t[0])) for typ in types]
         rank = [{r[i][0]: i + 1 for i in range(len(r))} for r in rank]
 
         for s, v in signatures.items():
             signatures[s] = {'browser': -1 if v['browser'] == 0 else rank[0][s],
                              'content': -1 if v['content'] == 0 else rank[1][s],
-                             'plugin': -1 if v['plugin'] == 0 else rank[2][s]}
+                             'plugin': -1 if v['plugin'] == 0 else rank[2][s],
+                             'gpu': -1 if v['gpu'] == 0 else rank[2][s]}
 
         data[chan] = signatures
 
@@ -931,7 +935,7 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_
     positions_result.wait()
 
     # replace dictionary containing trends by a list
-    empty_ranks = {'browser': -1, 'content': -1, 'plugin': -1}
+    empty_ranks = {'browser': -1, 'content': -1, 'plugin': -1, 'gpu': -1}
     for signature, i in trends.items():
         if signature in noisy:
             del analysis[signature]
