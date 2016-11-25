@@ -7,11 +7,13 @@ import argparse
 import re
 import functools
 import logging
+from collections import defaultdict
 from tabulate import (tabulate, TableFormat, DataRow)
 from dateutil.relativedelta import relativedelta
 from pprint import pprint
 import libmozdata.socorro as socorro
 import libmozdata.utils as utils
+from libmozdata.hgmozilla import Revision
 from libmozdata.bugzilla import Bugzilla
 import libmozdata.versions
 import libmozdata.dataanalysis as dataanalysis
@@ -29,6 +31,10 @@ args_pattern = re.compile('\([^\)]*\)')
 template_pattern = re.compile('<[^>]*>')
 dll_pattern = re.compile('([^@]+)@0x[a-fA-F0-9]+')
 extra_pattern = re.compile('[0-9]+|\.|-')
+jsbugmon_pattern = re.compile('The first bad revision is:\nchangeset:[ \t]*([^\n]*)\nuser:[ \t]*[^\n]*\ndate:[ \t]*[^\n]*\nsummary:[ \t]*[^\n]*')
+hg_rev_pattern = re.compile('://hg.mozilla.org/(?:releases/)?mozilla-([^/]+)/rev/([0-9a-z]+)')
+
+
 global_tablefmt = TableFormat(lineabove=None, linebelowheader=None,
                               linebetweenrows=None, linebelow=None,
                               headerrow=DataRow(' ', ' ', ''),
@@ -44,6 +50,9 @@ rank_tablefmt = TableFormat(lineabove=None, linebelowheader=None,
                             headerrow=DataRow(' ', ' ', ''),
                             datarow=DataRow(' ', ' ', ''),
                             padding=0, with_header_hide=None)
+
+
+__all_versions = None
 
 
 def __mk_volume_table(table, ty, headers=(), **kwargs):
@@ -336,26 +345,36 @@ def get_last_bug(bugids, sgn, sgninfo, patchesinfo, bugsinfo, min_date):
         return None
 
 
-def add_bug_info(signatures, bugs, status_flags, verbose):
+def add_bug_info(signatures, bugs, status_flags, product, verbose):
     include_fields = ['status', 'id', 'cf_crash_signature'] + list(status_flags.values())
-    bug_info = {}
+    bug_info = defaultdict(lambda: {'bug': {}, 'jsbugmon': set()})
 
     def bug_handler(bug, data):
-        data[str(bug['id'])] = bug
+        data[str(bug['id'])]['bug'].update(bug)
 
-    Bugzilla(bugs, include_fields=include_fields, bughandler=bug_handler, bugdata=bug_info).get_data().wait()
+    def comment_handler(bug, bugid, data):
+        for comment in bug['comments']:
+            if comment['author'] == 'fuzzing@mozilla.com':
+                _, major = get_jsbugmon_regression(comment['raw_text'], product=product)
+                if major != -1:
+                    data[str(bugid)]['jsbugmon'].add(major)
+
+    Bugzilla(bugs, include_fields=include_fields, bughandler=bug_handler, bugdata=bug_info, commenthandler=comment_handler, commentdata=bug_info).get_data().wait()
     __warn('Collected bug info: Ok', verbose)
 
     for info in signatures.values():
         bug = info['selected_bug']
         if bug:
             if bug in bug_info:
-                info['selected_bug'] = bug_info[bug]
+                info['selected_bug'] = bug_info[bug]['bug']
+                jsbugmon = bug_info[bug]['jsbugmon']
+                if jsbugmon:
+                    info['jsbugmon'] = min(jsbugmon)
             else:
                 info['selected_bug'] = 'private'
 
 
-def analyze(signatures, status_flags):
+def analyze(signatures, status_flags, base_versions):
     result = {}
     for signature, data in signatures.items():
         res = {'signature': signature,
@@ -370,6 +389,7 @@ def analyze(signatures, status_flags):
                'trend': {},
                'rank': {}}
         bug = data['selected_bug']
+        jsbugmon = data['jsbugmon']
         if bug and bug != 'private':
             if bug['status'] == 'RESOLVED':
                 res['resolved'] = True
@@ -382,7 +402,7 @@ def analyze(signatures, status_flags):
                     res['firefox'] = False
                 else:
                     sflag = bug[sflag]
-                    if channel not in data['no_change'] and sflag in ['---', 'unaffected']:
+                    if channel not in data['no_change'] and sflag in ['---', 'unaffected'] and base_versions[channel] >= jsbugmon:
                         added = True
                         res['affected'].append(ac)
                 if not added:
@@ -397,6 +417,40 @@ def analyze(signatures, status_flags):
             result[signature] = res
 
     return result
+
+
+def get_all_versions(product='Firefox'):
+    global __all_versions
+    if __all_versions is None:
+        __all_versions = {}
+    if product not in __all_versions:
+        __all_versions[product] = socorro.ProductVersions.get_all_versions(product=product)
+
+    return __all_versions[product]
+
+
+def get_jsbugmon_regression(comment, product='Firefox'):
+    m = jsbugmon_pattern.search(comment)
+    major = -1
+    channel = ''
+    if m:
+        # the date in ther jsbugmon comment is the author date and not the pushdate...
+        # so we need to query mercurial the get the pushdate to get the related version
+        changeset_url = m.group(1)
+        m = hg_rev_pattern.search(changeset_url)
+        if m:
+            repo = m.group(1)
+            rev = m.group(2)
+            channel = 'nightly' if repo == 'central' else repo
+            revinfo = Revision.get_revision(channel=channel, node=rev)
+            pushdate = utils.get_date_from_timestamp(revinfo['pushdate'][0])
+            versions = get_all_versions(product=product)[channel]
+            for __major, v in versions.items():
+                if v['dates'][0] <= pushdate and (v['dates'][1] is None or pushdate <= v['dates'][1]):
+                    major = __major
+                    break
+            # if major is 51 then it means that the regression found by jsbugmon is in 51
+    return channel, major
 
 
 def get_ignored_signatures(sgns=''):
@@ -453,6 +507,7 @@ def get_signatures(limit, product, versions, channel, search_date, signatures, b
             data[signature] = {'affected_channels': l1,
                                'platforms': l2,
                                'selected_bug': None,
+                               'jsbugmon': 0,
                                'bugs': None}
             facets = bucket['facets']
             for c in facets['release_channel']:
@@ -769,6 +824,7 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_
 
     if not end_date:
         end_date = utils.get_date('today')
+
     search_date = get_search_date(search_start_date, start_date, end_date)
 
     signatures = get_signatures(limit, product, versions_by_channel, channel, search_date, signatures, bug_ids, verbose)
@@ -838,10 +894,10 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_
     __warn('Collected last bugs: %d' % len(bugs), verbose)
 
     # add bug info in signatures
-    add_bug_info(signatures, list(bugs), status_flags, verbose)
+    add_bug_info(signatures, list(bugs), status_flags, product, verbose)
 
     # analyze the signatures
-    analysis = analyze(signatures, status_flags)
+    analysis = analyze(signatures, status_flags, base_versions)
 
     if max_bugs > 0:
         __analysis = {}
@@ -913,7 +969,7 @@ def generate_bug_report(sgn, info, status_flags_by_channel, base_versions, start
             plural = 'es' if volume != 1 else ''
             table.append(['- %s' % chan,
                           '(version %d):' % version,
-                          '%d crash%s from %s.' % (volume, plural, utils.get_date_str(start_date))])
+                          '%d crash%s from %s.' % (volume, plural, utils.get_date(start_date))])
         comment += __mk_volume_table(table, 'global')
 
         # Make the table for the trend
