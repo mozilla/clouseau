@@ -151,8 +151,9 @@ def walk_on_the_bt(channel, ts, max_days, info, sgn=None, verbose=False):
 
 
 def get_uuids_for_spiking_signatures(channel, cache=None, product='Firefox', date='today', limit=100000, max_days=3, threshold=5):
+    psttz = pytz.timezone('US/Pacific')
     end_date = utils.get_date_ymd(date)  # 2016-10-18 UTC
-    end_date_moz = pytz.timezone('US/Pacific').localize(datetime(end_date.year, end_date.month, end_date.day))  # 2016-10-18 PST
+    end_date_moz = psttz.localize(datetime(end_date.year, end_date.month, end_date.day))  # 2016-10-18 PST
     end_buildid = utils.get_buildid_from_date(end_date_moz)  # < 20161018000000
     start_date_moz = end_date_moz - timedelta(days=max_days + 1)  # 2016-10-14 PST (max_days == 3)
     start_buildid = utils.get_buildid_from_date(start_date_moz)  # >= 20161014000000
@@ -165,7 +166,7 @@ def get_uuids_for_spiking_signatures(channel, cache=None, product='Firefox', dat
     def handler(json, data):
         if not json['errors']:
             for facets in json['facets']['build_id']:
-                date = utils.get_date_from_buildid(facets['term'])
+                date = utils.get_date_from_buildid(facets['term']).astimezone(psttz)
                 buildids[date] = facets['count']
                 for s in facets['facets']['signature']:
                     sgn = s['term']
@@ -182,14 +183,13 @@ def get_uuids_for_spiking_signatures(channel, cache=None, product='Firefox', dat
                         handler=handler, handlerdata=data).wait()
 
     _data = {}
-    start_date = utils.as_utc(datetime(start_date.year, start_date.month, start_date.day))  # 2016-10-14 UTC
-    base = {start_date + timedelta(days=i): {'buildids': {}, 'total': 0} for i in range(max_days + 1)}  # from 2016-10-14 to 2016-10-17 UTC
+    base = {start_date_moz + timedelta(days=i): {'buildids': {}, 'total': 0} for i in range(max_days + 1)}  # from 2016-10-14 to 2016-10-17 PST
 
     for sgn, info in data.items():
         d = copy.deepcopy(base)
         _data[sgn] = d
         for bid, count in info.items():
-            date = utils.as_utc(datetime(bid.year, bid.month, bid.day))
+            date = psttz.localize(datetime(bid.year, bid.month, bid.day))
             d[date]['buildids'][bid] = count
             d[date]['total'] += count
     data = _data
@@ -425,8 +425,12 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--threshold', action='store', type=int, default=1, help='the threshold')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
     parser.add_argument('-l', '--localhost', action='store_true', help='to use Mercurial http://localhost:8000')
+    parser.add_argument('-L', '--log', action='store', default='/tmp/guiltypatches.log', help='file where to put log')
 
     args = parser.parse_args()
+
+    if args.log:
+        logging.basicConfig(filename=args.log, filemode='w', level=logging.DEBUG)
 
     if args.localhost:
         # we bypass config option
