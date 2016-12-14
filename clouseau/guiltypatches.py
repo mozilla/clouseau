@@ -150,7 +150,7 @@ def walk_on_the_bt(channel, ts, max_days, info, sgn=None, verbose=False):
     return files_info
 
 
-def get_uuids_for_spiking_signatures(channel, cache=None, product='Firefox', date='today', limit=100000, max_days=3, threshold=5):
+def get_uuids_for_spiking_signatures(channel, cache=None, product='Firefox', date='today', limit=10000, max_days=3, threshold=5):
     psttz = pytz.timezone('US/Pacific')
     end_date = utils.get_date_ymd(date)  # 2016-10-18 UTC
     end_date_moz = psttz.localize(datetime(end_date.year, end_date.month, end_date.day))  # 2016-10-18 PST
@@ -202,6 +202,9 @@ def get_uuids_for_spiking_signatures(channel, cache=None, product='Firefox', dat
 
     data = None
     if spiking_signatures:
+        # sort the signatures to be sure to always have the same order for the test
+        spiking_signatures = sorted(spiking_signatures)
+
         start_buildid = utils.get_buildid_from_date(end_date_moz - timedelta(days=1))
         search_buildid = ['>=' + start_buildid, '<' + end_buildid]
         queries = []
@@ -223,7 +226,7 @@ def get_uuids_for_spiking_signatures(channel, cache=None, product='Firefox', dat
                         uuid = first_uuid
                     data[sgn].append({'proto': proto, 'uuid': uuid, 'count': count})
 
-        for sgns in Connection.chunks(spiking_signatures, 10):
+        for sgns in Connection.chunks(spiking_signatures, 5):
             queries.append(Query(socorro.SuperSearch.URL,
                                  {'product': product,
                                   'date': search_date,
@@ -231,7 +234,7 @@ def get_uuids_for_spiking_signatures(channel, cache=None, product='Firefox', dat
                                   'signature': ['=' + s for s in sgns],
                                   'release_channel': channel,
                                   '_aggs.proto_signature': ['uuid', 'signature'],
-                                  '_facets_size': 100000,
+                                  '_facets_size': 10000,
                                   '_results_number': 0},
                                  handler=handler, handlerdata=data))
 
