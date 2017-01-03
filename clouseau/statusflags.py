@@ -434,7 +434,7 @@ def get_jsbugmon_regression(comment, product='Firefox'):
     major = -1
     channel = ''
     if m:
-        # the date in ther jsbugmon comment is the author date and not the pushdate...
+        # the date in the jsbugmon comment is the author date and not the pushdate...
         # so we need to query mercurial the get the pushdate to get the related version
         changeset_url = m.group(1)
         m = hg_rev_pattern.search(changeset_url)
@@ -562,7 +562,7 @@ def get_signatures(limit, product, versions, channel, search_date, signatures, b
 def get_crash_positions(limit, product, versions, channel, search_date='', end_date='today', verbose=False):
     def handler_ss(chan, json, data):
         if json['errors']:
-            __warn('Error in getting ranks: %s' % str(json['errors']), verbose)
+            __warn('Error in getting ranks for channel %s: %s' % (chan, str(json['errors'])), verbose)
 
         signatures = {}
         for sgn in json['facets']['signature']:
