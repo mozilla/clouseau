@@ -603,7 +603,7 @@ def get_crash_positions(limit, product, versions, channel, search_date='', end_d
     if not search_date:
         search_date = socorro.SuperSearch.get_search_date(utils.get_date(end_date, 7))
     if limit == -1:
-        limit = 1000000
+        limit = 10000
 
     for chan in channel:
         data[chan] = {}
