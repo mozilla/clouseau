@@ -487,7 +487,7 @@ def get_signatures(limit, product, versions, channel, search_date, signatures, b
 
     __signatures = {}
 
-    known_platforms = {'Windows NT', 'Mac OS X', 'Linux'}
+    known_platforms = {'Windows NT', 'Windows', 'Mac OS X', 'Linux'}
     known_wtf_platforms = {'0x00000000', ''}
 
     ignored_signatures = get_ignored_signatures()
