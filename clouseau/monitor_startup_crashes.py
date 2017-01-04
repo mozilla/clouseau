@@ -63,16 +63,25 @@ def convert(data):
 
 def get_most_signifiant_increases(data):
     # Get the differences between signatures numbers
+    # data = {product -> {channel -> {date -> {signature -> count...
     interesting_sgns = defaultdict(lambda: defaultdict(lambda: {}))
     infinity = float('+Inf')
     for p, i1 in data.items():
         for c, i2 in i1.items():
+            # add signature -> 0 for signature which have no crash
+            signatures = set(s for sgns in i2.values() for s in sgns.keys())
+            for sgns in i2.values():
+                for s in signatures:
+                    if s not in sgns:
+                        sgns[s] = 0
+
             diffs = {}
             for d, sgns in sorted(i2.items(), key=lambda p: p[0], reverse=True):
                 for sgn, n in sgns.items():
                     if sgn in diffs:
                         if diffs[sgn][0] > n:
-                            diffs[sgn] = (diffs[sgn][0] - n, diffs[sgn][0], n, int(round(100. * float(diffs[sgn][0] - n) / float(n))))
+                            rate = int(round(100. * float(diffs[sgn][0] - n) / float(n))) if n != 0 else infinity
+                            diffs[sgn] = (diffs[sgn][0] - n, diffs[sgn][0], n, rate)
                         else:
                             del diffs[sgn]
                     else:

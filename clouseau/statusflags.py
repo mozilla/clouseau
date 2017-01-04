@@ -310,7 +310,7 @@ def get_last_bugs_info(bugids, sgn, sgninfo, patchesinfo, bugsinfo, min_date):
 def get_last_bug(bugids, sgn, sgninfo, patchesinfo, bugsinfo, min_date):
     lasts, untimely_bug = get_last_bugs_info(bugids, sgn, sgninfo, patchesinfo, bugsinfo, min_date)
     # one_year_ago = utils.get_date_ymd('today') - relativedelta(years=1)
-    six_months_ago = utils.get_date_ymd('today') - relativedelta(month=6)
+    six_months_ago = utils.get_date_ymd('today') - relativedelta(months=6)
 
     if lasts['resolved-fixed-patched'][1] >= min_date:  # We've a patch in the last days
         toreturn = None
@@ -434,7 +434,7 @@ def get_jsbugmon_regression(comment, product='Firefox'):
     major = -1
     channel = ''
     if m:
-        # the date in ther jsbugmon comment is the author date and not the pushdate...
+        # the date in the jsbugmon comment is the author date and not the pushdate...
         # so we need to query mercurial the get the pushdate to get the related version
         changeset_url = m.group(1)
         m = hg_rev_pattern.search(changeset_url)
@@ -487,7 +487,7 @@ def get_signatures(limit, product, versions, channel, search_date, signatures, b
 
     __signatures = {}
 
-    known_platforms = {'Windows NT', 'Mac OS X', 'Linux'}
+    known_platforms = {'Windows NT', 'Windows', 'Mac OS X', 'Linux'}
     known_wtf_platforms = {'0x00000000', ''}
 
     ignored_signatures = get_ignored_signatures()
@@ -562,7 +562,7 @@ def get_signatures(limit, product, versions, channel, search_date, signatures, b
 def get_crash_positions(limit, product, versions, channel, search_date='', end_date='today', verbose=False):
     def handler_ss(chan, json, data):
         if json['errors']:
-            __warn('Error in getting ranks: %s' % str(json['errors']), verbose)
+            __warn('Error in getting ranks for channel %s: %s' % (chan, str(json['errors'])), verbose)
 
         signatures = {}
         for sgn in json['facets']['signature']:
@@ -603,7 +603,7 @@ def get_crash_positions(limit, product, versions, channel, search_date='', end_d
     if not search_date:
         search_date = socorro.SuperSearch.get_search_date(utils.get_date(end_date, 7))
     if limit == -1:
-        limit = 1000000
+        limit = 10000
 
     for chan in channel:
         data[chan] = {}
@@ -633,6 +633,8 @@ def __prettywarn(obj, verbose=True):
 
 
 def get_versions_info(product, date='today', base_versions=libmozdata.versions.get(base=True)):
+    if not date:
+        date = 'today'
     if base_versions is None:
         base_versions = libmozdata.versions.get(base=True)
     versions_by_channel = socorro.ProductVersions.get_info_from_major(base_versions, product=product, active=None)
@@ -641,6 +643,7 @@ def get_versions_info(product, date='today', base_versions=libmozdata.versions.g
     start_date_by_channel = {}
     start_date = utils.get_date_ymd(date)
     min_date = start_date
+    six_months_ago = utils.get_date_ymd(date) - relativedelta(weeks=26)
     for chan, versions in versions_by_channel.items():
         start_date_by_channel[chan] = utils.get_date_ymd('tomorrow')
         l = []
@@ -652,9 +655,9 @@ def get_versions_info(product, date='today', base_versions=libmozdata.versions.g
                 channel_by_version[vers] = chan
                 d = utils.get_date_ymd(v['start_date'])
                 if d < start_date:
-                    start_date = d
+                    start_date = max(d, six_months_ago)
                 if d < start_date_by_channel[chan]:
-                    start_date_by_channel[chan] = d
+                    start_date_by_channel[chan] = max(d, six_months_ago)
                 if chan != 'esr' and d < min_date:
                     min_date = d
 
@@ -705,15 +708,11 @@ def get_stats_for_past_weeks(product, channel, start_date_by_channel, versions_b
     trends = {}
     signatures_by_chan = {}
     default_trend_by_chan = {}
-    ref_w = utils.get_date_ymd(end_date).isocalendar()[1]
+    ref_monday, _ = utils.get_monday_sunday(utils.get_date_ymd(end_date))
 
     def get_past_week(date):
-        isodate = date.isocalendar()
-        w = isodate[1]
-        if w > ref_w:
-            return ref_w - w + 53
-        else:
-            return ref_w - w
+        monday, _ = utils.get_monday_sunday(date)
+        return (ref_monday - monday).days // 7
 
     for chan in channel:
         past_w = get_past_week(start_date_by_channel[chan])
@@ -812,7 +811,7 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_
     if product == 'Firefox':
         channel.append('esr')
 
-    start_date, min_date, versions_by_channel, start_date_by_channel, base_versions = get_versions_info(product, base_versions=base_versions)
+    start_date, min_date, versions_by_channel, start_date_by_channel, base_versions = get_versions_info(product, date=end_date, base_versions=base_versions)
     nv = Bugzilla.get_nightly_version()
 
     if check_bz_version and nv != base_versions['nightly']:
@@ -828,9 +827,6 @@ def get(product='Firefox', limit=1000, verbose=False, search_start_date='', end_
 
     if not end_date:
         end_date = utils.get_date('today')
-        six_months_ago = utils.get_date_ymd('today') - relativedelta(month=6)
-        if start_date <= six_months_ago:
-            start_date = six_months_ago
 
     search_date = get_search_date(search_start_date, start_date, end_date)
 
