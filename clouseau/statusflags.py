@@ -108,7 +108,7 @@ def get_bugs_info(bugids, status_flags):
                     elif field_name == 'assigned_to':
                         has_assignee = change.get('added', None) != 'nobody@mozilla.org'
                     elif field_name in status_flags.values():
-                        if change.get('added', None) in ['unaffected', '---'] and change.get('removed', None) in ['affected', '?']:
+                        if change.get('added', None) in ['unaffected', '---'] and change.get('removed', None) in ['affected', '?', '---']:
                             for k, v in status_flags.items():
                                 if v == field_name:
                                     chan_to_not_change.add(k)
