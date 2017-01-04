@@ -224,6 +224,7 @@ def filter_bugs(bugids, product):
             return
 
         signatures = bug.get('cf_crash_signature', None)
+        # if we've no signatures then don't take into account this bug
         if signatures:
             if '[@' in signatures:
                 signatures = map(lambda s: s.strip(' \t\r\n'), signatures.split('[@'))
@@ -244,8 +245,6 @@ def filter_bugs(bugids, product):
                     data.add(bug['id'])
                 else:
                     bad.append(signatures)
-        else:
-            data.add(bug['id'])
 
     data = set()
     Bugzilla(bugids=bugids, include_fields=['id', 'cf_crash_signature', 'status', 'resolution', 'product'], bughandler=bug_handler, bugdata=data).wait()
