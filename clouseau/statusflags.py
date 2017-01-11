@@ -775,7 +775,7 @@ def get_noisy(trends, analysis, thresholds=None):
     noisy = set()
     for sgn, data in trends.items():
         isnoisy = True
-        affected = [c for c, _ in analysis[sgn]['affected']]
+        affected = [c for c, _ in analysis[sgn]['affected'] if c != 'esr']
         for chan in affected:
             trend = data[chan]
             v = trend.values()
