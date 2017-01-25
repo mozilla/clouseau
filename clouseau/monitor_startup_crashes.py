@@ -66,8 +66,13 @@ def get_most_signifiant_increases(data):
     # data = {product -> {channel -> {date -> {signature -> count...
     interesting_sgns = defaultdict(lambda: defaultdict(lambda: {}))
     infinity = float('+Inf')
+    empty = []
     for p, i1 in data.items():
         for c, i2 in i1.items():
+            if not i2:
+                empty.append((p, c))
+                continue
+
             # add signature -> 0 for signature which have no crash
             signatures = set(s for sgns in i2.values() for s in sgns.keys())
             for sgns in i2.values():
@@ -92,6 +97,9 @@ def get_most_signifiant_increases(data):
             outliers = spikeanalysis.generalized_esd(x, 3, alpha=0.01, method='mean')
             if outliers:
                 interesting_sgns[p][c] = {s[i][0]: s[i][1] for i in outliers}
+
+    for p, c in empty:
+        del data[p][c]
 
     return interesting_sgns
 
