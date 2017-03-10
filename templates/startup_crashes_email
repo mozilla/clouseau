@@ -15,8 +15,12 @@ Most significant increases from {{ start_date }} to {{ end_date }} (<a href="{{ 
 <ul>
 {% for sgn, bugs, prev_count, count, percent in i2[1] %}<li>{{ sgn|e }}: <b>increased from {{ prev_count }} to {{ count }} (+{{ percent }}%)</b>.
 <ul>
-{% for bug_id, bug_link in bugs %}<li><a href="{{ bug_link }}">Bug {{ bug_id }}</a></li>
-{% endfor -%}
+{% if bugs['resolved'] -%}
+<li><a href="{{ bugs['resolved'][1] }}"><s style="color:red">Bug {{ bugs['resolved'][0] }}</s></a></li>
+{% endif -%}
+{% if bugs['unresolved'] -%}
+<li><a href="{{ bugs['unresolved'][1] }}">Bug {{ bugs['unresolved'][0] }}</a></li>
+{% endif -%}
 </ul>
 </li>
 {% endfor -%}

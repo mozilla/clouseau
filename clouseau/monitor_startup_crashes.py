@@ -15,7 +15,6 @@ import libmozdata.utils as utils
 import libmozdata.spikeanalysis as spikeanalysis
 import libmozdata.gmail as gmail
 from libmozdata.bugzilla import Bugzilla
-from . import statusflags
 from . import config
 import inflect
 
@@ -110,10 +109,43 @@ def get_bugs(data):
         for c, i2 in i1.items():
             signatures = signatures.union(set(i2.keys()))
     bugs_by_signature = socorro.Bugs.get_bugs(list(signatures))
-    statusflags.reduce_set_of_bugs(bugs_by_signature)
+    bugs = set()
+    for b in bugs_by_signature.values():
+        bugs = bugs.union(set(b))
+    bugs = list(sorted(bugs))
+
+    def handler(bug, data):
+        data[bug['id']] = bug['status']
+
+    data = {}
+    Bugzilla(bugids=bugs, include_fields=['id', 'status'], bughandler=handler, bugdata=data).wait()
 
     for s, bugs in bugs_by_signature.items():
-        bugs_by_signature[s] = [(str(bug), Bugzilla.get_links(bug)) for bug in sorted(bugs, key=lambda k: int(k))]
+        resolved = []
+        unresolved = []
+        for b in bugs:
+            b = int(b)
+            status = data[b]
+            if status == 'RESOLVED':
+                resolved.append(b)
+            else:
+                unresolved.append(b)
+
+        if resolved:
+            last_resolved = max(resolved)
+            last_resolved = (str(last_resolved), Bugzilla.get_links(last_resolved))
+        else:
+            last_resolved = None
+
+        if unresolved:
+            last_unresolved = max(unresolved)
+            last_unresolved = (str(last_unresolved), Bugzilla.get_links(last_unresolved))
+        else:
+            last_unresolved = None
+
+        unresolved = sorted(unresolved)
+        bugs_by_signature[s] = {'resolved': last_resolved,
+                                'unresolved': last_unresolved}
 
     return bugs_by_signature
 
@@ -293,7 +325,12 @@ def monitor(emails=[], date='yesterday', path='', data=None, verbose=False, writ
                 _is[product][chan] = interesting_sgns[product][chan]
         interesting_sgns = _is
 
-        body = template.render(spikes_number=spikes_number, spikes_number_word=inflect.engine().number_to_words(spikes_number), crash_data=crash_data, start_date=utils.get_date_str(new_start_date), end_date=utils.get_date_str(start_date), interesting_sgns=interesting_sgns)
+        body = template.render(spikes_number=spikes_number,
+                               spikes_number_word=inflect.engine().number_to_words(spikes_number),
+                               crash_data=crash_data,
+                               start_date=utils.get_date_str(new_start_date),
+                               end_date=utils.get_date_str(start_date),
+                               interesting_sgns=interesting_sgns)
         title = 'Spikes in startup crashes in %s' % ', '.join(affected_chans)
 
         if emails:
