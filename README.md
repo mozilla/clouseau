@@ -1,5 +1,8 @@
 # clouseau
-> Tool to find out some clues after crashes in using data from Socorro, Bugzilla and mercurial.
+
+Tool to find out some clues after crashes in using data from Socorro, Bugzilla and mercurial.
+
+Results on Firefox code are tracked in a meta bug: https://bugzilla.mozilla.org/show_bug.cgi?id=1396527
 
 [![Build Status](https://api.travis-ci.org/mozilla/clouseau.svg?branch=master)](https://travis-ci.org/mozilla/clouseau)
 [![codecov.io](https://img.shields.io/codecov/c/github/mozilla/clouseau/master.svg)](https://codecov.io/github/mozilla/clouseau?branch=master)
